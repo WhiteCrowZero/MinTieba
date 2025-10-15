@@ -1,0 +1,87 @@
+version: '3.8'
+services:
+  mysql:
+    image: mysql:8.0
+    restart: always
+    container_name: mysql
+    networks:
+      - web
+    environment:
+      MYSQL_ROOT_PASSWORD: 123
+      TZ: Asia/Shanghai
+    command:
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --explicit_defaults_for_timestamp=true
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./docker/mysql/data:/var/lib/mysql/
+      - ./docker/mysql/conf:/etc/mysql/conf.d/
+      - ./docker/mysql/logs:/var/log/mysql/
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d/
+
+  redis:
+    image: redis:6.2.6
+    restart: always
+    container_name: redis
+    networks:
+      - web
+    ports:
+      - "6370:6379"
+    sysctls:
+      net.core.somaxconn: 2048
+    command: redis-server --requirepass 123
+    volumes:
+      - ./docker/redis/data:/data
+      - ./docker/redis/logs:/var/log/redis/
+      - ./docker/redis/conf:/usr/local/etc/redis/
+
+  ubuntu1: &ubuntu
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    restart: always
+    container_name: ubuntu1
+    networks:
+      - sys
+    ports:
+      - "8881:22"  # 修复：映射到标准SSH端口22
+    tty: true
+    # 移除privileged: true，除非确实需要
+    # 添加标准输入保持打开
+    stdin_open: true
+    expose:
+      - 22
+    command: /usr/sbin/sshd -D  # 修复：正确的sshd路径
+
+  ubuntu2:
+    <<: *ubuntu
+    container_name: ubuntu2
+    ports:
+      - "8882:22"  # 修复：映射到标准SSH端口22
+
+  ubuntu3:
+    <<: *ubuntu
+    container_name: ubuntu3
+    ports:
+      - "8883:22"  # 修复：映射到标准SSH端口22
+
+  ubuntu4:
+    <<: *ubuntu
+    container_name: ubuntu4
+    ports:
+      - "8884:22"  # 修复：映射到标准SSH端口22
+
+# 网络定义应该在这里，与services同级
+networks:
+  web:
+    driver: bridge
+  sys:
+    driver: bridge
+
+# 启动命令：
+# docker-compose -f docker-compose.yaml up -d
+# 停止命令：
+# docker-compose -f docker-compose.yaml down
