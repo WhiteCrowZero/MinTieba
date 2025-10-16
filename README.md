@@ -1,7 +1,8 @@
 # MinTieba
-模仿百度贴吧
+>模仿百度贴吧
 
-项目目录结构：
+## 基本内容概览
+### 项目目录结构
 ```
 MinTieba/                       ← 根目录（项目仓库根）
 │
@@ -123,3 +124,313 @@ MinTieba/                       ← 根目录（项目仓库根）
    └─ media/
 
 ```
+
+### 数据库设计
+- 用户表
+  - user_account
+    - 用户主信息表
+    - 字段：
+      - **id(PK)**
+      - username
+      - password
+      - email
+      - _mobile_
+      - **role_id(FK role)**
+      - avatar_url
+      - bio
+      - gender
+      - is_active
+      - is_banned
+      - created_at
+      - updated_at
+  - user_profile
+    - 用户扩展信息表
+    - 字段：
+      - **id(PK)**
+      - **user_id(FK user_account)**
+      - birthday
+      - location
+      - signature
+      - exp_points
+      - level
+      - last_login_ip
+      - _privacy_settings(JSON)_
+      - created_at
+      - updated_at
+- RBAC表
+  - role
+    - 角色表
+    - 字段：
+      - **id(PK)**
+      - name
+      - description
+      - level
+  - permission
+    - 权限表
+    - 字段：
+      - **id(PK)**
+      - code
+      - name
+      - description
+      - _category_
+  - role_permission_map
+    - 角色权限映射表
+    - 字段：
+      - **id(PK)**
+      - **role_id(FK role)**
+      - **permission_id(FK permission)**
+      - created_at
+  - user_login_history
+    - 用户登录记录表
+    - 字段：
+      - **id(PK)**
+      - **user_id(FK user_account)**
+      - login_ip
+      - device_info
+      - login_time
+- 贴吧表
+  - forum
+    - 吧信息表
+    - 字段：
+      - **id(PK)**
+      - name
+      - description
+      - cover_image_url
+      - **creator_id(FK user_account)**
+      - post_count
+      - member_count
+      - _rules(TEXT)_
+      - hot_post_count
+      - created_at
+      - updated_at
+  - forum_category
+    - 吧分类表
+    - 字段：
+      - **id(PK)**
+      - name
+      - description
+      - icon_url
+      - sort_order
+  - forum_category_map
+    - 吧与分类关系表
+    - 字段：
+      - **id(PK)**
+      - **forum_id(FK forum)**
+      - **category_id(FK forum_category)**
+      - **UNIQUE(forum_id, category_id)**
+  - forum_relation
+    - 吧关联表
+    - 字段
+      - **id(PK)**
+      - **forum_id(FK forum)**
+      - **related_id(FK forum)**
+      - **UNIQUE(forum_id, related_id)**
+      - created_at
+  - forum_member
+    - 吧成员表
+    - 字段：
+      - **id(PK)**
+      - **forum_id(FK forum)**
+      - **user_id(FK user_account)**
+      - **UNIQUE(forum_id, user_id)**
+      - _role_type(ENUM)_
+        - owner
+        - admin
+        - member
+      - joined_at
+      - is_banned
+  - forum_activity
+    - 吧内活跃度表
+    - 字段：
+      - **id(PK)**
+      - **forum_id(FK forum)**
+      - **user_id(FK user_account)**
+      - **UNIQUE(forum_id, user_id)**
+      - exp_points
+      - level
+      - last_active_at
+      - sign_in_streak
+- 帖子表
+  - post
+    - 帖子主表
+    - 字段：
+      - **id(PK)**
+      - **forum_id(FK forum)**
+      - **author_id(FK user_account)**
+      - title
+      - content
+      - content_html
+      - view_count
+      - like_count
+      - comment_count
+      - is_pinned
+      - is_locked
+      - is_essence
+      - is_deleted
+      - edit_count
+      - created_at
+      - updated_at
+  - post_image
+    - 帖子图片表
+    - 字段：
+      - **id(PK)**
+      - **post_id(FK post)**
+      - image_url
+      - order_index
+      - uploaded_at
+  - post_tag
+    - 标签定义表
+    - 字段：
+      - **id(PK)**
+      - name
+      - description
+      - color
+  - post_tag_map
+    - 帖子标签映射表
+    - 字段：
+      - **id(PK)**
+      - **post_id(FK post)**
+      - **tag_id(FK post_tag)**
+- 互动表
+  - comment
+    - 评论表
+    - 字段：
+      - **id(PK)**
+      - **post_id(FK post)**
+      - **parent_id(FK comment)**
+        - NULL
+        - comment_id
+      - **author_id(FK user_account)**
+      - content
+      - like_count
+      - floor_number
+      - is_deleted
+      - created_at
+  - like_record
+    - 点赞表
+    - 字段：
+      - **id(PK)**
+      - **user_id(FK user_account)**
+      - _target_type(ENUM)_
+        - post
+        - comment
+      - **target_id(FK post|comment)**
+      - is_active
+      - created_at
+  - collection_folder
+    - 收藏夹表
+    - 字段：
+      - **id(PK)**
+      - **user_id(FK user_account)**
+      - name
+      - description
+      - is_default
+      - is_deleted
+      - created_at
+  - collection_item
+    - 收藏内容表
+    - 字段：
+      - **id(PK)**
+      - **user_id(FK user_account)**
+      - **folder_id(FK collection_folder)**
+      - **post_id(FK post)**
+      - is_deleted
+      - created_at
+  - user_follow
+    - 用户关注表
+    - 字段：
+      - **id(PK)**
+      - **follower_id(FK user_account)**
+      - **followed_id(FK user_account)**
+      - **UNIQUE(follower_id, followed_id)**
+      - created_at
+- 消息表
+  - notification
+    - 通知表
+    - 字段：
+      - **id(PK)**
+      - **user_id(FK user_account)**
+      - title
+      - message
+      - _type(ENUM)_
+        - system
+        - reply
+        - like
+        - mention
+        - follow
+      - _target_type(ENUM)_
+        - post
+        - comment
+      - **target_id(FK post|comment)**
+      - is_read
+      - created_at
+  - message_thread
+    - 私信会话表
+    - 字段：
+      - **id(PK)**
+      - **user1_id(FK user_account)**
+      - **user2_id(FK user_account)**
+      - last_message_preview
+      - updated_at
+  - private_message
+    - 私信消息表
+    - 字段：
+      - **id(PK)**
+      - **thread_id(FK message_thread)**
+      - **sender_id(FK user_account)**
+      - content
+      - image_url
+      - is_read
+      - created_at
+- 系统表
+  - report
+    - 举报记录表
+    - 字段：
+      - **id(PK)**
+      - **reporter_id(FK user_account)**
+      - **reviewed_by(FK user_account)**
+      - target_type
+      - target_id
+      - _reason(TEXT)_
+      - _status(ENUM)_
+        - pending
+        - approved
+        - rejected
+      - evidence_url
+      - created_at
+  - system_log
+    - 操作日志表
+    - 字段：
+      - **id(PK)**
+      - **user_id(FK user_account)**
+      - _action_type(ENUM)_
+        - update
+        - create
+        - delete
+        - select
+        - login
+        - logout
+        - register
+        - ban
+        - upload
+        - recover
+        - approve
+        - reject
+      - _target_type(ENUM)_
+        - user
+        - forum
+        - post
+        - comment
+      - target_id
+      - ip_address
+      - created_at
+  - announcement
+    - 系统公告表
+    - 字段：
+      - **id(PK)**
+      - title
+      - content
+      - start_time
+      - end_time
+      - is_active
+      - created_at
