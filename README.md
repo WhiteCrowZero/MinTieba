@@ -122,8 +122,9 @@ MinTieba/                       ← 根目录（项目仓库根）
 └─ static/                     ← 静态文件
    ├─ uploads/
    └─ media/
-
 ```
+
+---
 
 ### 数据库设计
 - 用户表
@@ -134,7 +135,7 @@ MinTieba/                       ← 根目录（项目仓库根）
       - username
       - password
       - email
-      - _mobile_
+      - mobile
       - **role_id(FK role)**
       - avatar_url
       - bio
@@ -154,9 +155,20 @@ MinTieba/                       ← 根目录（项目仓库根）
       - exp_points
       - level
       - last_login_ip
-      - _privacy_settings(JSON)_
+      - _privacy_settings(ENUM)_
+        - public
+        - friends
+        - private
       - created_at
       - updated_at
+  - user_login_history
+    - 用户登录记录表
+    - 字段：
+      - **id(PK)**
+      - **user_id(FK user_account)**
+      - login_ip
+      - device_info
+      - login_time
 - RBAC表
   - role
     - 角色表
@@ -173,6 +185,7 @@ MinTieba/                       ← 根目录（项目仓库根）
       - name
       - description
       - _category_
+        - _可设计成外键，此处设计为字段_
   - role_permission_map
     - 角色权限映射表
     - 字段：
@@ -180,14 +193,6 @@ MinTieba/                       ← 根目录（项目仓库根）
       - **role_id(FK role)**
       - **permission_id(FK permission)**
       - created_at
-  - user_login_history
-    - 用户登录记录表
-    - 字段：
-      - **id(PK)**
-      - **user_id(FK user_account)**
-      - login_ip
-      - device_info
-      - login_time
 - 贴吧表
   - forum
     - 吧信息表
@@ -197,10 +202,11 @@ MinTieba/                       ← 根目录（项目仓库根）
       - description
       - cover_image_url
       - **creator_id(FK user_account)**
-      - post_count
-      - member_count
+      - _post_count_
+        - 反范式
+      - _member_count_
+        - 反范式
       - _rules(TEXT)_
-      - hot_post_count
       - created_at
       - updated_at
   - forum_category
@@ -244,8 +250,8 @@ MinTieba/                       ← 根目录（项目仓库根）
     - 字段：
       - **id(PK)**
       - **forum_id(FK forum)**
-      - **user_id(FK user_account)**
-      - **UNIQUE(forum_id, user_id)**
+      - **member_id(FK forum_member)**
+      - **UNIQUE(forum_id, member_id)**
       - exp_points
       - level
       - last_active_at
@@ -259,15 +265,18 @@ MinTieba/                       ← 根目录（项目仓库根）
       - **author_id(FK user_account)**
       - title
       - content
-      - content_html
-      - view_count
-      - like_count
-      - comment_count
+      - _view_count_
+        - 反范式
+      - _like_count_
+        - 反范式
+      - _comment_count_
+        - 反范式
       - is_pinned
       - is_locked
       - is_essence
       - is_deleted
-      - edit_count
+      - is_draft
+      - scheduled_at
       - created_at
       - updated_at
   - post_image
@@ -302,7 +311,8 @@ MinTieba/                       ← 根目录（项目仓库根）
         - comment_id
       - **author_id(FK user_account)**
       - content
-      - like_count
+      - _like_count_
+        - 反范式
       - floor_number
       - is_deleted
       - created_at
@@ -315,6 +325,7 @@ MinTieba/                       ← 根目录（项目仓库根）
         - post
         - comment
       - **target_id(FK post|comment)**
+      - **UNIQUE(user_id, target_type, target_id)**
       - is_active
       - created_at
   - collection_folder
@@ -334,6 +345,7 @@ MinTieba/                       ← 根目录（项目仓库根）
       - **user_id(FK user_account)**
       - **folder_id(FK collection_folder)**
       - **post_id(FK post)**
+      - **UNIQUE(user_id, folder_id, post_id)**
       - is_deleted
       - created_at
   - user_follow
@@ -370,6 +382,7 @@ MinTieba/                       ← 根目录（项目仓库根）
       - **id(PK)**
       - **user1_id(FK user_account)**
       - **user2_id(FK user_account)**
+      - **UNIQUE(user1_id, user2_id)**
       - last_message_preview
       - updated_at
   - private_message
@@ -434,3 +447,8 @@ MinTieba/                       ← 根目录（项目仓库根）
       - end_time
       - is_active
       - created_at
+
+---
+
+### 第三方库使用
+- xxx

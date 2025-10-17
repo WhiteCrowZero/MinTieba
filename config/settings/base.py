@@ -9,13 +9,14 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+from datetime import timedelta
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 import sys
-sys.path.insert(0, str(BASE_DIR / 'apps'))
+
+sys.path.insert(0, str(BASE_DIR / "apps"))
 
 
 # Quick-start development settings - unsuitable for production
@@ -33,15 +34,27 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    "simpleui",  # 必须写在admin前面
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # others
+    "rest_framework",
+    "corsheaders",
+    "drf_spectacular",
+    # project
+    "accounts",
+    "forums",
+    "posts",
+    "interactions",
+    "operations",
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -56,8 +69,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / 'templates']
-        ,
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -105,9 +117,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = "en-us"
+LANGUAGE_CODE = "zh-Hans"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "Asia/Shanghai"
 
 USE_I18N = True
 
@@ -123,3 +135,34 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+REST_FRAMEWORK = {
+    # # 异常处理
+    # 'EXCEPTION_HANDLER': 'exceptions.custom_exception_handler',
+
+    # 文档配置
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# SimpleUI 配置
+SIMPLEUI_DEFAULT_THEME = 'admin.e-blue-pro.css'
+
+# JWT 设置
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=3000),  # access token 30 分钟过期
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),  # refresh token 1 天过期
+    "ROTATE_REFRESH_TOKENS": True,  # 刷新时颁发新的 refresh
+    "BLACKLIST_AFTER_ROTATION": True,  # 旧的 refresh 失效
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
+
+# Swagger API 文档配置
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'MinTieba Project API',
+    'DESCRIPTION': 'MinTieba 项目 API 文档',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SECURITY': [{'Bearer': []}],  # 告诉 OpenAPI 使用 Bearer token
+}
