@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
+
 from datetime import timedelta
 from pathlib import Path
 
@@ -44,17 +45,18 @@ INSTALLED_APPS = [
     # others
     "rest_framework",
     "corsheaders",
-    "drf_spectacular",
     # project
     "accounts",
     "forums",
     "posts",
     "interactions",
     "operations",
+    "verification",
 ]
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
+    "common.response_wrapper.UnifiedResponseMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -137,19 +139,16 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
-    # # 异常处理
-    # 'EXCEPTION_HANDLER': 'exceptions.custom_exception_handler',
-
-    # 文档配置
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # 异常处理
+    "EXCEPTION_HANDLER": "common.exceptions.database_exception_handler",
 }
 
 # SimpleUI 配置
-SIMPLEUI_DEFAULT_THEME = 'admin.e-blue-pro.css'
+SIMPLEUI_DEFAULT_THEME = "admin.e-blue-pro.css"
 
 # JWT 设置
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=3000),  # access token 30 分钟过期
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),  # access token 30 分钟过期
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),  # refresh token 1 天过期
     "ROTATE_REFRESH_TOKENS": True,  # 刷新时颁发新的 refresh
     "BLACKLIST_AFTER_ROTATION": True,  # 旧的 refresh 失效
@@ -158,11 +157,88 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-# Swagger API 文档配置
-SPECTACULAR_SETTINGS = {
-    'TITLE': 'MinTieba Project API',
-    'DESCRIPTION': 'MinTieba 项目 API 文档',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
-    'SECURITY': [{'Bearer': []}],  # 告诉 OpenAPI 使用 Bearer token
+
+# 配置日志
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    # 日志格式
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name} {message} (Process:{process:d} Thread:{thread:d})",
+            "style": "{",
+            "datefmt": "%Y-%m-%d %H:%M:%S",  # 添加日期格式，便于阅读
+        },
+        "simple": {
+            "format": "{levelname}: {message}",
+            "style": "{",
+        },
+    },
+    # 日志输出
+    "handlers": {
+        # 控制台（开发用，生产设为WARNING）
+        "console": {
+            "level": "DEBUG" if DEBUG else "WARNING",
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+        # 所有日志（INFO+，按天旋转）
+        "django_file": {
+            "level": "INFO",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": str(BASE_DIR / "logs/django.log"),
+            "formatter": "verbose",
+            "when": "midnight",  # 每天午夜旋转
+            "interval": 1,
+            "backupCount": 30,  # 保留30天
+            "encoding": "utf-8",
+        },
+        # 访问日志（专用于HTTP访问，可与Gunicorn集成）
+        "access_file": {
+            "level": "INFO",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": str(BASE_DIR / "logs/access.log"),
+            "formatter": "verbose",
+            "when": "midnight",
+            "interval": 1,
+            "backupCount": 30,
+            "encoding": "utf-8",
+        },
+        # 错误日志（ERROR+）
+        "error_file": {
+            "level": "ERROR",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": str(BASE_DIR / "logs/error.log"),
+            "formatter": "verbose",
+            "when": "midnight",
+            "interval": 1,
+            "backupCount": 15,  # 错误日志保留15天
+            "encoding": "utf-8",
+        },
+    },
+    # 日志管理器
+    "root": {
+        "handlers": ["console", "django_file", "error_file"],
+        "level": "WARNING",  # root默认WARNING，避免过多日志
+    },
+    "loggers": {
+        # Django 框架日志
+        "django": {
+            "handlers": ["console", "django_file", "error_file"],
+            "level": "INFO",
+            "propagate": True,  # 传播到root
+        },
+        # HTTP请求日志（包括404/500）
+        "django.request": {
+            "handlers": ["access_file", "error_file"],
+            "level": "WARNING",  # 只记录WARNING+，避免过多访问日志
+            "propagate": False,  # 不传播，独立管理
+        },
+        # 业务日志（自定义模块，如app.feat）
+        "feat": {
+            "handlers": ["console", "django_file", "error_file"],
+            "level": "INFO",
+            "propagate": False,  # 独立，不传播到django/root
+        },
+    },
 }
