@@ -1,3 +1,4 @@
+from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 
@@ -85,7 +86,7 @@ class VisibilityChoices(models.TextChoices):
 # ========== 用户主信息表 ==========
 
 
-class UserAccount(models.Model):
+class UserAccount(AbstractUser):
     """用户主信息表"""
 
     username = models.CharField(max_length=150, unique=True, verbose_name="用户名")
@@ -109,8 +110,10 @@ class UserAccount(models.Model):
         default=GenderChoices.OTHER,
         verbose_name="性别",
     )
-    is_active = models.BooleanField(default=True, verbose_name="是否激活")
+    # 用户是否激活（业务逻辑用，系统的 is_activate 保留，用作系统逻辑）
+    is_active_account = models.BooleanField(default=False, verbose_name="是否激活")
     is_banned = models.BooleanField(default=False, verbose_name="是否封禁")
+    is_deleted = models.BooleanField(default=False, verbose_name="是否注销")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 

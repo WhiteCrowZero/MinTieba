@@ -19,13 +19,12 @@ class UnifiedResponseMiddleware:
         return self.process_response(request, response)
 
     def process_response(self, request, response):
+        original_data = getattr(response, "data", None)
         if isinstance(response, Response):
             response.data = {
                 "code": response.status_code,
                 "message": "失败" if response.status_code >= 400 else "成功",
                 # 保留原来的 detail data
-                "detail": getattr(response, "data", None),
+                "detail": original_data,
             }
-            # JsonResponse 必须重置 content
-            response._is_rendered = False
         return response

@@ -47,11 +47,11 @@ INSTALLED_APPS = [
     "corsheaders",
     # project
     "accounts",
-    "forums",
-    "posts",
-    "interactions",
-    "operations",
-    "verification",
+    # "forums",
+    # "posts",
+    # "interactions",
+    # "operations",
+    # "verification",
 ]
 
 MIDDLEWARE = [
@@ -242,3 +242,58 @@ LOGGING = {
         },
     },
 }
+
+# 自定义登录校验（支持用户名或者邮箱）
+AUTHENTICATION_BACKENDS = [
+    "common.auth.EmailOrUsernameBackend",
+]
+
+# 指定用户模型
+AUTH_USER_MODEL = "accounts.UserAccount"
+
+import os
+from dotenv import load_dotenv
+
+env_path = BASE_DIR / "deploy" / "configs" / ".env"
+load_dotenv(dotenv_path=env_path)
+
+# 默认缓存过期时间
+DEFAULT_EXPIRE_SECONDS = os.getenv("DEFAULT_EXPIRE_SECONDS", 300)
+CAPTCHA_EXPIRE_SECONDS = os.getenv("CAPTCHA_EXPIRE_SECONDS", 300)
+EMAIL_EXPIRE_SECONDS = os.getenv("EMAIL_EXPIRE_SECONDS", 300)
+
+# 缓存配置
+REDIS_URL = os.getenv("REDIS_BASE_URL", "redis://127.0.0.1:6379")
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"{REDIS_URL}/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    },
+    "captcha": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"{REDIS_URL}/2",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    },
+    "email": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"{REDIS_URL}/3",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    },
+}
+
+# 邮箱设置
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.163.com")
+EMAIL_PORT = os.getenv("EMAIL_PORT", 25)
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = True  # 是否使用TLS安全连接
+# 邮箱验证回调地址
+EMAIL_ACTIVATE_RETURN_URL = os.getenv("EMAIL_ACTIVATE_RETURN_URL", "")
