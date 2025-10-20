@@ -40,7 +40,6 @@ class EmailService:
             exp=int(EmailService.EMAIL_LIMIT_EXPIRE),
         )
         # 异步发送激活链接
-        # send_email(email, verify_code=verify_url)
         send_email.delay(email, verify_code=verify_url)
 
         return True

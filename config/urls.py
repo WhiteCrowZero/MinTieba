@@ -24,6 +24,7 @@ from rest_framework_simplejwt.views import (
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/accounts/", include("apps.accounts.urls")),
+    path("api/verification/", include("apps.verification.urls")),
     # 刷新 access
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 ]
