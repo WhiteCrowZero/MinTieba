@@ -1,9 +1,9 @@
 import uuid
 from django.conf import settings
 
-from common.auth import make_random_code
-from common.tasks import send_email
-from common.utils.cache_utils import CacheService
+from apps.common.auth import make_random_code
+from apps.common.tasks import send_email
+from apps.common.utils.cache_utils import CacheService
 
 
 class EmailService:

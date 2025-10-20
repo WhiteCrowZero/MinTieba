@@ -6,7 +6,7 @@ from django.contrib.auth.backends import ModelBackend
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from common.utils.cache_utils import CacheService
+from apps.common.utils.cache_utils import CacheService
 
 # from services.oauth import OauthWeiboVerify
 

@@ -15,10 +15,6 @@ from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-import sys
-
-sys.path.insert(0, str(BASE_DIR / "apps"))
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -44,19 +40,19 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # others
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     # project
-    "accounts",
+    "apps.accounts",
     # "forums",
     # "posts",
     # "interactions",
     # "operations",
-    # "verification",
+    "apps.verification",
 ]
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
-    "common.response_wrapper.UnifiedResponseMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -141,6 +137,15 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 REST_FRAMEWORK = {
     # 异常处理
     "EXCEPTION_HANDLER": "common.exceptions.database_exception_handler",
+    # 分页
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 10,  # 每页显示的文章数量
+    # 认证
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    # 渲染器
+    "DEFAULT_RENDERER_CLASSES": ("apps.common.response_renders.UnifiedJSONRenderer",),
 }
 
 # SimpleUI 配置
@@ -297,3 +302,6 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = True  # 是否使用TLS安全连接
 # 邮箱验证回调地址
 EMAIL_ACTIVATE_RETURN_URL = os.getenv("EMAIL_ACTIVATE_RETURN_URL", "")
+
+# 默认头像URL
+DEFAULT_AVATAR_URL = os.getenv("DEFAULT_AVATAR_URL", "")

@@ -1,5 +1,5 @@
-from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.contrib.auth.models import AbstractUser
 
 
 # ========== RBAC 权限相关表 ==========
@@ -47,10 +47,16 @@ class RolePermissionMap(models.Model):
     """角色-权限映射表"""
 
     role = models.ForeignKey(
-        Role, on_delete=models.PROTECT, related_name="permissions", verbose_name="角色"
+        "accounts.Role",
+        on_delete=models.PROTECT,
+        related_name="permissions",
+        verbose_name="角色",
     )
     permission = models.ForeignKey(
-        Permission, on_delete=models.PROTECT, related_name="roles", verbose_name="权限"
+        "accounts.Permission",
+        on_delete=models.PROTECT,
+        related_name="roles",
+        verbose_name="权限",
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
 
@@ -96,7 +102,7 @@ class UserAccount(AbstractUser):
         max_length=20, blank=True, null=True, verbose_name="手机号"
     )
     role = models.ForeignKey(
-        Role,
+        "accounts.Role",
         on_delete=models.SET_NULL,
         null=True,
         related_name="users",
@@ -114,6 +120,7 @@ class UserAccount(AbstractUser):
     is_active_account = models.BooleanField(default=False, verbose_name="是否激活")
     is_banned = models.BooleanField(default=False, verbose_name="是否封禁")
     is_deleted = models.BooleanField(default=False, verbose_name="是否注销")
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="注销时间")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
@@ -134,7 +141,7 @@ class UserProfile(models.Model):
     """用户扩展信息表"""
 
     user = models.OneToOneField(
-        UserAccount,
+        "accounts.UserAccount",
         on_delete=models.CASCADE,
         related_name="profile",
         verbose_name="用户",
@@ -157,6 +164,8 @@ class UserProfile(models.Model):
         default=VisibilityChoices.FRIENDS,
         verbose_name="隐私设置",
     )
+    is_deleted = models.BooleanField(default=False, verbose_name="是否注销")
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="注销时间")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
@@ -176,7 +185,7 @@ class UserLoginHistory(models.Model):
     """用户登录历史表"""
 
     user = models.ForeignKey(
-        UserAccount,
+        "accounts.UserAccount",
         on_delete=models.CASCADE,
         related_name="login_history",
         verbose_name="用户",

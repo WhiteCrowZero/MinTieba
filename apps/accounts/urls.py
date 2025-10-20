@@ -1,28 +1,22 @@
 from django.urls import path
 from .views import (
     RegisterView,
-    # LoginView,
-    # OauthLoginView,
-    # UserInfoView,
-    # UserContactView,
-    # UserInfoDetailView,
-    # UserContactDetailView,
-    # LogoutView,
-    # ResetPasswordView,
-    # DestroyUserView,
-    # UserAvatarView,
+    LoginView,
+    LogoutView,
+    ResetPasswordView,
+    DestroyUserView,
 )
 
 urlpatterns = [
     # 普通注册
     path("register/", RegisterView.as_view(), name="register"),
-    # path('login/', LoginView.as_view(), name='login'),
+    path("login/", LoginView.as_view(), name="login"),
+    path("logout/", LogoutView.as_view(), name="logout"),
+    path('password/reset/', ResetPasswordView.as_view(), name='password-reset'),
     # # 第三方注册和登录（合并为同一个接口）
     # path('oauth/login/', OauthLoginView.as_view(), name='oauth-login'),
-    # path('logout/', LogoutView.as_view(), name='logout'),
-    # path('password/reset/', ResetPasswordView.as_view(), name='password-reset'),
-    # # 删除账号（软删除）
-    # path('destroy/', DestroyUserView.as_view(), name='destroy-user'),
+    # 删除账号（软删除）
+    path('destroy/', DestroyUserView.as_view(), name='destroy-user'),
     # # 基本信息
     # path('info/', UserInfoView.as_view(), name='info'),
     # path('info/detial/', UserInfoDetailView.as_view(), name='info-detail'),

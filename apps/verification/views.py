@@ -16,8 +16,8 @@ from rest_framework.generics import GenericAPIView, get_object_or_404
 #     EmailSendActivateSerializer,
 # )
 
-from common.auth import make_random_code, CaptchaValidateMixin
-from common.utils.cache_utils import CacheService
+from apps.common.auth import make_random_code, CaptchaValidateMixin
+from apps.common.utils.cache_utils import CacheService
 
 User = get_user_model()
 

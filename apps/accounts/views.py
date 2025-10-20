@@ -1,49 +1,40 @@
-import uuid
+import logging
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 
 from rest_framework.generics import (
-    RetrieveUpdateDestroyAPIView,
-    RetrieveUpdateAPIView,
-    ListCreateAPIView,
-    ListAPIView,
-    RetrieveAPIView,
     GenericAPIView,
 )
+from rest_framework.views import APIView
 from rest_framework_simplejwt.token_blacklist.models import (
     OutstandingToken,
     BlacklistedToken,
 )
 
-# from services.code_send import email_service
-# from social.models import Like
-# from .models import UserContact
-# from articles.models import ReadingHistory
-from django.contrib.auth import get_user_model
+
+from .models import UserProfile, GenderChoices
 from .serializers import (
     RegisterSerializer,
-#     LoginSerializer,
-#     OauthLoginSerializer,
-#     UserInfoSerializer,
-#     UserContactSerializer,
-#     ResetPasswordSerializer,
-#     LogoutSerializer,
-#     UserContactBindSerializer,
-#     UserContactUnbindSerializer,
-#     UserAvatarSerializer,
+    LoginSerializer,
+    LogoutSerializer,
+    ResetPasswordSerializer,
 )
-from rest_framework.response import Response
-# from services import auth
-# from services.permissions import IsSelf, IsActiveAccount
+
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
+
 from django.db import transaction
-from rest_framework import serializers, status
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.conf import settings
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
-
-from common.auth import generate_tokens_for_user
-from common.utils.email_utils import EmailService
+from apps.common.permissions import IsSelf
+from apps.common.auth import generate_tokens_for_user
+from apps.common.utils.email_utils import EmailService
 
 User = get_user_model()
+logger = logging.getLogger("feat")
 
 
 class RegisterView(GenericAPIView):
@@ -60,6 +51,7 @@ class RegisterView(GenericAPIView):
         EmailService.send_activate_code(user.id, user.email)
         # 签发 token（包含 Access 和 Refresh）
         access_token, refresh_token = generate_tokens_for_user(user)
+        logger.info(f"{user.id}:{user.username}普通注册成功")
         return Response(
             {
                 "user_id": user.id,
@@ -70,136 +62,165 @@ class RegisterView(GenericAPIView):
         )
 
 
-# class LoginView(GenericAPIView):
-#     """普通登录视图（邮箱/用户名登录）"""
-#
-#     serializer_class = LoginSerializer
-#     permission_classes = [AllowAny]
-#
-#     def post(self, request):
-#         serializer = self.get_serializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-#         user = serializer.validated_data.get("user")
-#
-#         access_token, refresh_token = generate_tokens_for_user(user)
-#         return Response(
-#             {
-#                 "user_id": user.id,
-#                 "username": user.username,
-#                 "access": access_token,
-#                 "refresh": refresh_token,
-#             }
-#         )
-#
-#
-# class LogoutView(GenericAPIView):
-#     """通用登出视图"""
-#
-#     serializer_class = LogoutSerializer
-#
-#     def post(self, request):
-#         try:
-#             serializer = self.get_serializer(data=request.data)
-#             serializer.is_valid(raise_exception=True)
-#
-#             # 转换成 Token 对象，并将 refresh_token 拉入黑名单（access短期过期后自动失效）
-#             refresh_token = serializer.validated_data["refresh"]
-#             token = RefreshToken(refresh_token)
-#             token.blacklist()
-#         except Exception as e:
-#             print(e)
-#             return Response({"detail": "登出失败"}, status=status.HTTP_400_BAD_REQUEST)
-#
-#         return Response({"detail": "登出成功"}, status=status.HTTP_200_OK)
-#
-#
-# class DestroyUserView(GenericAPIView):
-#     """通用注销账户视图"""
-#
-#     serializer_class = LogoutSerializer
-#
-#     @staticmethod
-#     def anonymize_user(user):
-#         """匿名化用户"""
-#         user.username = f"user_{user.id}"
-#         user.email = ""
-#         user.avatar = "avatar/default.png"
-#         user.bio = "该用户已注销"
-#         user.is_active = False
-#         user.is_active_account = False
-#         user.is_deleted = True
-#         user.deleted_at = timezone.now()
-#         user.save()
-#
-#     def post(self, request):
-#         serializer = self.get_serializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-#
-#         try:
-#             # refresh token 拉入黑名单
-#             refresh_token = serializer.validated_data["refresh"]
-#             token = RefreshToken(refresh_token)
-#             token.blacklist()
-#         except Exception:
-#             return Response(
-#                 {"detail": "Token 注销失败"}, status=status.HTTP_400_BAD_REQUEST
-#             )
-#
-#         try:
-#             # 对敏感数据（如联系方式、阅读历史）进行硬删除，其他（如评论）级联设置为 NULL 软删除
-#             with transaction.atomic():
-#                 user = request.user
-#                 UserContact.objects.filter(user=user).delete()
-#                 ReadingHistory.objects.filter(user=user).delete()
-#                 Like.objects.filter(
-#                     user=user
-#                 ).delete()  # 临时性数据，关联较少，直接硬删除
-#                 self.anonymize_user(user)
-#         except Exception as e:
-#             return Response(
-#                 {"detail": f"注销失败: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST
-#             )
-#
-#         return Response({"detail": "注销成功"}, status=status.HTTP_200_OK)
-#
-#
-# class ResetPasswordView(GenericAPIView):
-#     """重置密码"""
-#
-#     serializer_class = ResetPasswordSerializer
-#
-#     def post(self, request):
-#         serializer = self.get_serializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-#         password = serializer.validated_data["password"]
-#         user = self.request.user
-#         try:
-#             # 重置密码
-#             user.set_password(password)
-#             user.save()
-#
-#             # 注销 refresh token，强制当前登录状态下线（不依赖前端）
-#             tokens = OutstandingToken.objects.filter(user=user)
-#             for t in tokens:
-#                 BlacklistedToken.objects.get_or_create(token=t)
-#
-#             return Response(
-#                 {
-#                     "user_id": user.id,
-#                     "username": user.username,
-#                     "message": "重置密码成功",
-#                 }
-#             )
-#         except Exception as e:
-#             return Response(
-#                 {
-#                     "user_id": user.id,
-#                     "username": user.username,
-#                     "message": "重置密码失败",
-#                 },
-#                 status=status.HTTP_400_BAD_REQUEST,
-#             )
-#
+class LoginView(GenericAPIView):
+    """普通登录视图（邮箱/用户名登录）"""
+
+    serializer_class = LoginSerializer
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data.get("user")
+        access_token, refresh_token = generate_tokens_for_user(user)
+        logger.info(f"{user.id}:{user.username}普通登录成功")
+        return Response(
+            {
+                "user_id": user.id,
+                "username": user.username,
+                "access": access_token,
+                "refresh": refresh_token,
+            }
+        )
+
+
+class LogoutView(GenericAPIView):
+    """通用登出视图"""
+
+    serializer_class = LogoutSerializer
+    permission_classes = [IsAuthenticated, IsSelf]
+
+    def post(self, request):
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+
+            # 转换成 Token 对象，并将 refresh_token 拉入黑名单（access短期过期后自动失效）
+            refresh_token = serializer.validated_data["refresh"]
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        except TokenError as e:
+            logger.error(
+                f"{request.user.id}:{request.user.username}token已过期或已登出，原因：{str(e)}"
+            )
+            return Response(
+                {"detail": "token已过期或已登出"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            logger.error(
+                f"{request.user.id}:{request.user.username}登出失败，原因：{str(e)}"
+            )
+            return Response({"detail": "登出失败"}, status=status.HTTP_400_BAD_REQUEST)
+
+        logger.info(f"{request.user.id}:{request.user.username}登出成功")
+        return Response({"detail": "登出成功"}, status=status.HTTP_200_OK)
+
+
+class DestroyUserView(APIView):
+    """通用注销账户视图"""
+
+    permission_classes = [IsAuthenticated, IsSelf]
+
+    @staticmethod
+    def anonymize_user_account(user):
+        """匿名化用户"""
+        user.username = f"user_{user.id}"
+        user.email = f"{user.id}@deleted.com"
+        user.avatar_url = settings.DEFAULT_AVATAR_URL
+        user.bio = "该用户已注销"
+        user.mobile = ""
+        # user.role = Role.objects.get(name="已删除用户")
+        user.role = None
+        user.gender = GenderChoices.OTHER
+        user.is_active = False
+        user.is_active_account = False
+        user.is_deleted = True
+        user.deleted_at = timezone.now()
+        user.save()
+
+    @staticmethod
+    def anonymize_user_profile(user):
+        """匿名化用户扩展信息"""
+        if hasattr(user, "profile"):
+            profile: UserProfile = user.profile
+            profile.is_deleted = True
+            profile.deleted_at = timezone.now()
+            profile.birthday = None
+            profile.location = None
+            profile.signature = "该用户已注销"
+            profile.last_login_ip = None
+            profile.save()
+        else:
+            logger.warning(f"用户 {user.id} 没有 profile")
+
+    def post(self, request):
+        user = request.user
+        try:
+            # refresh token 拉入黑名单
+            tokens = OutstandingToken.objects.filter(user=user)
+            for t in tokens:
+                BlacklistedToken.objects.get_or_create(token=t)
+        except Exception as e:
+            logger.error(
+                f"{user.id}:{user.username}token已过期或已登出，原因：{str(e)}"
+            )
+            return Response(
+                {"detail": "Token 注销失败"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            with transaction.atomic():
+                self.anonymize_user_account(user)
+                self.anonymize_user_profile(user)
+        except Exception as e:
+            logger.error(f"{user.id}:{user.username}注销失败，原因：{str(e)}")
+            return Response({"detail": f"注销失败"}, status=status.HTTP_400_BAD_REQUEST)
+
+        logger.info(f"{user.id}:{user.username}注销成功")
+        return Response({"detail": "注销成功"}, status=status.HTTP_200_OK)
+
+
+class ResetPasswordView(GenericAPIView):
+    """重置密码"""
+
+    serializer_class = ResetPasswordSerializer
+    permission_classes = [IsAuthenticated, IsSelf]
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        password = serializer.validated_data["password"]
+        user = self.request.user
+        try:
+            # 重置密码
+            user.set_password(password)
+            user.save()
+
+            # 注销 refresh token，强制当前登录状态下线（不依赖前端）
+            tokens = OutstandingToken.objects.filter(user=user)
+            for t in tokens:
+                BlacklistedToken.objects.get_or_create(token=t)
+
+            logger.info(f"{user.id}:{user.username}重置密码成功")
+            return Response(
+                {
+                    "user_id": user.id,
+                    "username": user.username,
+                    "message": "重置密码成功",
+                }
+            )
+        except Exception as e:
+            logger.error(f"{user.id}:{user.username}重置密码失败，原因：{str(e)}")
+            return Response(
+                {
+                    "user_id": user.id,
+                    "username": user.username,
+                    "message": "重置密码失败",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
 #
 # class OauthLoginView(GenericAPIView):
 #     """第三方登录视图（可以选择登录后绑定，未绑定新创建账户）"""
