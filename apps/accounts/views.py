@@ -1,9 +1,13 @@
 import logging
 from django.utils import timezone
 from django.contrib.auth import get_user_model
+from rest_framework.exceptions import ValidationError, NotFound
 
 from rest_framework.generics import (
     GenericAPIView,
+    RetrieveAPIView,
+    UpdateAPIView,
+    RetrieveUpdateAPIView,
 )
 from rest_framework.views import APIView
 from rest_framework_simplejwt.token_blacklist.models import (
@@ -11,13 +15,13 @@ from rest_framework_simplejwt.token_blacklist.models import (
     BlacklistedToken,
 )
 
-
-from .models import UserProfile, GenderChoices
+from .models import UserProfile, GenderChoices, UserAccount
 from .serializers import (
     RegisterSerializer,
     LoginSerializer,
     LogoutSerializer,
     ResetPasswordSerializer,
+    UserProfileSerializer,
 )
 
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -29,7 +33,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from apps.common.permissions import IsSelf
+from apps.common.permissions import IsSelf, CanViewUserProfile
 from apps.common.auth import generate_tokens_for_user
 from apps.common.utils.email_utils import EmailService
 
@@ -294,48 +298,35 @@ class ResetPasswordView(GenericAPIView):
 #             return UserContactUnbindSerializer
 #         # 其余如 get 可以直接获取对应的绑定联系方式的信息
 #         return UserContactSerializer
-#
-#
-# class UserInfoView(RetrieveAPIView):
-#     """用户基本信息展示视图"""
-#
-#     serializer_class = UserInfoSerializer
-#
-#     @extend_schema(
-#         parameters=[
-#             OpenApiParameter(
-#                 name="user_id",
-#                 type=int,
-#                 required=False,
-#                 location="query",
-#                 description="指定用户ID，如果不填则返回当前登录用户信息",
-#             )
-#         ],
-#         operation_id="user_info_retrieve",
-#     )
-#     def get(self, request, *args, **kwargs):
-#         return super().get(request, *args, **kwargs)
-#
-#     def get_object(self):
-#         # 通过查询字符串参数，区分是查询自己的用户信息页，还是他人的用户信息页
-#         user_id = self.request.query_params.get("user_id")
-#         if user_id:
-#             return User.objects.get(id=user_id)
-#         return self.request.user
-#
-#
-# class UserInfoDetailView(RetrieveUpdateAPIView):
-#     """用户基本信息修改视图"""
-#
-#     serializer_class = UserInfoSerializer
-#     # 必须认证为自己的用户，才能修改自己的详情页
-#     permission_classes = [IsAuthenticated, IsSelf, IsActiveAccount]
-#     lookup_field = "id"  # 指定查找字段，但其实下面 get_object 会直接用 request.user
-#
-#     def get_object(self):
-#         # 直接返回当前登录用户
-#         return self.request.user
-#
+
+
+class UserProfileView(RetrieveAPIView):
+    """用户资料展示视图"""
+
+    serializer_class = UserProfileSerializer
+    permission_classes = [IsAuthenticated, CanViewUserProfile]
+
+    def get_object(self):
+        pk = self.kwargs.get("pk")
+        if pk:
+            try:
+                user = UserAccount.active_objects.get(pk=pk)
+            except UserAccount.DoesNotExist:
+                raise NotFound(detail="当前用户不存在或已注销")
+            return user.profile
+        # 默认返回自己
+        return self.request.user.profile
+
+class UserProfileRetrieveUpdateView(RetrieveUpdateAPIView):
+    """用户资料修改视图"""
+
+    serializer_class = UserProfileSerializer
+    permission_classes = [IsAuthenticated, IsSelf]
+
+    def get_object(self):
+        return self.request.user.profile
+
+
 #
 # class UserAvatarView(RetrieveUpdateDestroyAPIView):
 #     """用户头像查看、修改、删除视图"""

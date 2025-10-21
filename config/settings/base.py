@@ -15,6 +15,9 @@ from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+import sys
+
+sys.path.insert(0, str(BASE_DIR / "apps"))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -43,12 +46,12 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     # project
-    "apps.accounts",
-    # "forums",
-    # "posts",
-    # "interactions",
+    "accounts",
+    "forums",
+    "posts",
+    "interactions",
     # "operations",
-    "apps.verification",
+    "verification",
 ]
 
 MIDDLEWARE = [
@@ -153,7 +156,7 @@ SIMPLEUI_DEFAULT_THEME = "admin.e-blue-pro.css"
 
 # JWT 设置
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),  # access token 30 分钟过期
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=3000),  # access token 30 分钟过期
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),  # refresh token 1 天过期
     "ROTATE_REFRESH_TOKENS": True,  # 刷新时颁发新的 refresh
     "BLACKLIST_AFTER_ROTATION": True,  # 旧的 refresh 失效
@@ -197,6 +200,7 @@ LOGGING = {
             "interval": 1,
             "backupCount": 30,  # 保留30天
             "encoding": "utf-8",
+            "delay": True,
         },
         # 访问日志（专用于HTTP访问，可与Gunicorn集成）
         "access_file": {
@@ -208,6 +212,7 @@ LOGGING = {
             "interval": 1,
             "backupCount": 30,
             "encoding": "utf-8",
+            "delay": True,
         },
         # 错误日志（ERROR+）
         "error_file": {
@@ -219,6 +224,7 @@ LOGGING = {
             "interval": 1,
             "backupCount": 15,  # 错误日志保留15天
             "encoding": "utf-8",
+            "delay": True,
         },
     },
     # 日志管理器

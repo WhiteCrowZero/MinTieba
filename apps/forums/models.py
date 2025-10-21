@@ -68,10 +68,13 @@ class ForumCategoryMap(models.Model):
     """贴吧与分类映射"""
 
     forum = models.ForeignKey(
-        Forum, on_delete=models.CASCADE, related_name="categories", verbose_name="贴吧"
+        "forums.Forum",
+        on_delete=models.CASCADE,
+        related_name="categories",
+        verbose_name="贴吧",
     )
     category = models.ForeignKey(
-        ForumCategory,
+        "forums.ForumCategory",
         on_delete=models.CASCADE,
         related_name="forums",
         verbose_name="分类",
@@ -91,10 +94,10 @@ class ForumRelation(models.Model):
     """贴吧关联表"""
 
     forum = models.ForeignKey(
-        Forum, on_delete=models.CASCADE, related_name="relations", verbose_name="贴吧"
+        "forums.Forum", on_delete=models.CASCADE, related_name="relations", verbose_name="贴吧"
     )
     related = models.ForeignKey(
-        Forum,
+        "forums.Forum",
         on_delete=models.CASCADE,
         related_name="related_to",
         verbose_name="关联贴吧",
@@ -115,7 +118,7 @@ class ForumMember(models.Model):
     """吧成员表"""
 
     forum = models.ForeignKey(
-        Forum, on_delete=models.CASCADE, related_name="members", verbose_name="贴吧"
+        "forums.Forum", on_delete=models.CASCADE, related_name="members", verbose_name="贴吧"
     )
     user = models.ForeignKey(
         UserModel,
@@ -146,10 +149,13 @@ class ForumActivity(models.Model):
     """吧内活跃度表"""
 
     forum = models.ForeignKey(
-        Forum, on_delete=models.CASCADE, related_name="activities", verbose_name="贴吧"
+        "forums.Forum",
+        on_delete=models.CASCADE,
+        related_name="activities",
+        verbose_name="贴吧",
     )
     forum_member = models.ForeignKey(
-        ForumMember,
+        "forums.ForumMember",
         on_delete=models.CASCADE,
         related_name="forum_activities",
         verbose_name="吧成员",

@@ -1,8 +1,10 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model, authenticate
+from django.db import transaction
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
-from apps.accounts.models import UserProfile
+from .models import UserProfile
 from apps.common.auth import CaptchaValidateMixin
 
 User = get_user_model()
@@ -45,8 +47,9 @@ class RegisterSerializer(CaptchaValidateMixin, serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
-        # 单独使用工具类校验 captcha
-        attrs = self.validate_captcha(attrs)  # 直接传 attrs
+        if not settings.DEBUG:
+            # 单独使用工具类校验 captcha
+            attrs = self.validate_captcha(attrs)  # 直接传 attrs
         if attrs["password"] != attrs["confirm_password"]:
             raise serializers.ValidationError({"password": "两次输入的密码不一致"})
         return attrs
@@ -65,13 +68,15 @@ class RegisterSerializer(CaptchaValidateMixin, serializers.ModelSerializer):
         validated_data.pop("captcha_id")
         validated_data.pop("captcha_code")
 
-        # 其余字段创建模型
-        user = User(**validated_data)
-        user.set_password(password)
-        user.save()
+        # 事务保证用户主模型account和对应的profile表一起创建
+        with transaction.atomic():
+            # 其余字段创建模型
+            user = User(**validated_data)
+            user.set_password(password)
+            user.save()
 
-        # 创建用户资料
-        UserProfile.objects.create(user=user)
+            # 创建用户资料
+            UserProfile.objects.create(user=user)
 
         return user
 
@@ -117,3 +122,25 @@ class ResetPasswordSerializer(serializers.Serializer):
         if attrs["password"] != attrs["confirm_password"]:
             raise serializers.ValidationError({"password": "两次输入的密码不一致"})
         return attrs
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = [
+            "user_id",
+            "birthday",
+            "location",
+            "signature",
+            "exp_points",
+            "level",
+            "last_login_ip",
+            "privacy_settings",
+        ]
+        read_only_fields = ["user_id", "exp_points", "level", "last_login_ip"]
+        extra_kwargs = {
+            "birthday": {"required": False},
+            "location": {"required": False},
+            "signature": {"required": False},
+            "privacy_settings": {"required": False},
+        }

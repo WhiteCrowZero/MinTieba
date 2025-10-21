@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager
 
 
 # ========== RBAC 权限相关表 ==========
@@ -85,8 +85,19 @@ class VisibilityChoices(models.TextChoices):
     """隐私设置枚举"""
 
     PUBLIC = "public", "公开"
-    FRIENDS = "friends", "仅好友"
+    FOLLOW = "follow", "仅关注"
     PRIVATE = "private", "私密"
+
+
+# ========== 用户管理 ==========
+
+
+class ActiveUserManager(UserManager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active_account=True, is_deleted=False)
+
+    def all_with_deleted(self):
+        return super().get_queryset()
 
 
 # ========== 用户主信息表 ==========
@@ -124,6 +135,9 @@ class UserAccount(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
+    objects = UserManager()  # 默认管理器，不过滤
+    active_objects = ActiveUserManager()  # 专门用于活跃用户的管理器
+
     class Meta:
         db_table = "user_account"
         verbose_name = "用户账户"
@@ -153,7 +167,7 @@ class UserProfile(models.Model):
     signature = models.CharField(
         max_length=255, blank=True, null=True, verbose_name="个性签名"
     )
-    exp_points = models.IntegerField(default=0, verbose_name="经验值")
+    exp_points = models.PositiveIntegerField(default=0, verbose_name="经验值")
     level = models.PositiveIntegerField(default=1, verbose_name="等级")
     last_login_ip = models.GenericIPAddressField(
         blank=True, null=True, verbose_name="最后登录IP"
@@ -161,7 +175,7 @@ class UserProfile(models.Model):
     privacy_settings = models.CharField(
         max_length=50,
         choices=VisibilityChoices.choices,
-        default=VisibilityChoices.FRIENDS,
+        default=VisibilityChoices.FOLLOW,
         verbose_name="隐私设置",
     )
     is_deleted = models.BooleanField(default=False, verbose_name="是否注销")
