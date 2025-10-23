@@ -271,6 +271,7 @@ load_dotenv(dotenv_path=env_path)
 DEFAULT_EXPIRE_SECONDS = os.getenv("DEFAULT_EXPIRE_SECONDS", 300)
 CAPTCHA_EXPIRE_SECONDS = os.getenv("CAPTCHA_EXPIRE_SECONDS", 300)
 EMAIL_EXPIRE_SECONDS = os.getenv("EMAIL_EXPIRE_SECONDS", 300)
+SMS_CODE_EXPIRE_SECONDS = os.getenv("SMS_CODE_EXPIRE_SECONDS", 300)
 
 # 缓存配置
 REDIS_URL = os.getenv("REDIS_BASE_URL", "redis://127.0.0.1:6379")
@@ -296,6 +297,13 @@ CACHES = {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         },
     },
+    "sms": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"{REDIS_URL}/4",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    },
 }
 
 # 邮箱设置
@@ -306,22 +314,32 @@ EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = True  # 是否使用TLS安全连接
 # 邮箱验证回调地址
-EMAIL_ACTIVATE_RETURN_URL = os.getenv("EMAIL_ACTIVATE_RETURN_URL", "http://127.0.0.1:8000")
+EMAIL_ACTIVATE_RETURN_URL = os.getenv(
+    "EMAIL_ACTIVATE_RETURN_URL", "http://127.0.0.1:8000"
+)
 
 # 默认头像URL
 DEFAULT_AVATAR_URL = os.getenv("DEFAULT_AVATAR_URL", "")
 
 # MinIO / OSS 配置
-MINIO_ENDPOINT = "127.0.0.1:9000"
-MINIO_ACCESS_KEY = "admin"
-MINIO_SECRET_KEY = "admin123"
-MINIO_BUCKET_NAME = "mini-tieba"
+MINIO_ENDPOINT = os.getenv("MINIO_ACCESS_KEY", "127.0.0.1:9000")
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "")
+MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "mini-tieba")
 MINIO_USE_SSL = False
-DEFAULT_IMAGE_FOLDER_NAME = "images"
+DEFAULT_IMAGE_FOLDER_NAME = os.getenv("DEFAULT_IMAGE_FOLDER_NAME", "images")
 
 
 # 限制与策略
-OSS_MAX_IMAGE_SIZE = 5 * 1024 * 1024        # 默认 5 MB
+OSS_MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 默认 5 MB
 OSS_ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
-OSS_MAX_IMAGE_WIDTH = 2000                   # 压缩时的最大宽度（可配置）
-OSS_DEFAULT_IMAGE_QUALITY = 85               # JPEG 压缩质量
+OSS_MAX_IMAGE_WIDTH = 2000  # 压缩时的最大宽度（可配置）
+OSS_DEFAULT_IMAGE_QUALITY = 85  # JPEG 压缩质量
+
+
+# 腾讯 sms 短信服务配置
+TENCENTCLOUD_SECRET_ID = os.getenv("TENCENTCLOUD_SECRET_ID", "")
+TENCENTCLOUD_SECRET_KEY = os.getenv("TENCENTCLOUD_SECRET_KEY", "")
+TENCENT_SMS_APP_ID = os.getenv("TENCENT_SMS_APP_ID", "")
+TENCENT_SMS_SIGN = os.getenv("TENCENT_SMS_SIGN", "")
+TENCENT_SMS_TEMPLATE_ID = os.getenv("TENCENT_SMS_TEMPLATE_ID", "")

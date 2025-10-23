@@ -264,7 +264,7 @@ class UserEmailUpdateSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class UserEmailVerifySendSerializer(serializers.ModelSerializer):
+class UserEmailSendSerializer(serializers.ModelSerializer):
     """用户邮箱验证码发送序列化器"""
 
     email = serializers.EmailField(
@@ -279,37 +279,30 @@ class UserEmailVerifySendSerializer(serializers.ModelSerializer):
         fields = ["email"]
 
 
-class UserActivateSerializer(serializers.ModelSerializer):
-    """用户激活序列化器"""
+class UserEmailActivateSerializer(serializers.ModelSerializer):
+    """用户账户激活序列化器（通过邮件）"""
+
+    verify_code = serializers.CharField(required=True, write_only=True)
+
+    class Meta:
+        model = UserModel
+        fields = ["verify_code"]
+
+    def validate(self, attrs):
+        verify_code = attrs.pop("verify_code")
+        # 校验验证码
+        if not EmailService.check_activate_code(verify_code):
+            raise serializers.ValidationError({"verify_code": "激活链接错误或失效"})
+        return attrs
+
+
+class UserMobileUpdateSerializer(serializers.ModelSerializer):
+    """用户手机号修改序列化器"""
 
     pass
 
 
-# class EmailVerifySerializer(serializers.Serializer):
-#     verify_code = serializers.CharField(required=True)
-#     email = serializers.EmailField(required=True)
-#     new_email = serializers.EmailField(required=True)
-#
-#     def validate(self, attrs):
-#         email = attrs.get('email')
-#         new_email = attrs.get('new_email')
-#
-#         if not email or not new_email:
-#             raise serializers.ValidationError({"errors": "原邮箱和新邮箱不能为空"})
-#         if email == new_email:
-#             raise serializers.ValidationError({"errors": "两次输入的邮箱不能相同"})
-#         # 校验新邮箱是否已存在
-#         if User.objects.filter(email=new_email).exists():
-#             raise serializers.ValidationError({"errors": "该邮箱已被注册"})
-#
-#         return attrs
-#
-#
-# class EmailSendVerifySerializer(serializers.Serializer):
-#     new_email = serializers.EmailField(required=True)
-#
-#     def validated_new_email(self, value):
-#         # 校验新邮箱是否已存在
-#         if User.objects.filter(email=value).exists():
-#             raise serializers.ValidationError({"errors": "该邮箱已被注册"})
-#         return value
+class UserMobileVerifySendSerializer(serializers.ModelSerializer):
+    """用户手机号验证码发送序列化器"""
+
+    pass

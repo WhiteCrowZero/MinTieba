@@ -1,5 +1,7 @@
 import uuid
 from django.conf import settings
+from django.urls import reverse
+from urllib.parse import urlencode
 
 from apps.common.auth import make_random_code
 from apps.common.tasks import send_email
@@ -15,7 +17,10 @@ class EmailService:
         # 生成激活链接
         verify_code = uuid.uuid4().hex
         verify_code.replace("-", "")
-        verify_url = f"{settings.EMAIL_ACTIVATE_RETURN_URL}/verify/email/activate?verify_code={verify_code}"
+        base_url = settings.EMAIL_ACTIVATE_RETURN_URL
+        path = reverse("activate-email-verify")
+        query = urlencode({"verify_code": verify_code})
+        verify_url = f"{base_url}{path}?{query}"
 
         # 保存验证码到缓存
         key = f"email:activate:{verify_code}"
@@ -32,6 +37,7 @@ class EmailService:
 
     @staticmethod
     def check_activate_code(verify_code):
+        """校验激活链接"""
         key = f"email:activate:{verify_code}"
         email = CacheService.get_value(key, EmailService.EMAIL_CACHE_NAME)
         # 一次性，校验一次后，无论对错，立即删除
@@ -61,6 +67,7 @@ class EmailService:
 
     @staticmethod
     def check_verify_code(email, verify_code):
+        """校验邮箱验证码"""
         key = f"email:verify:{email}"
         right_code = CacheService.get_value(key, EmailService.EMAIL_CACHE_NAME)
         # 一次性，校验一次后，无论对错，立即删除

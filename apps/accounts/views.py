@@ -1,5 +1,6 @@
 import base64
 import logging
+import random
 import uuid
 
 from captcha.image import ImageCaptcha
@@ -21,6 +22,7 @@ from rest_framework_simplejwt.token_blacklist.models import (
 )
 
 from common.utils.cache_utils import CacheService
+from common.utils.sms_utils import SMSService
 from .models import UserProfile, GenderChoices, UserAccount
 from .serializers import (
     RegisterSerializer,
@@ -31,7 +33,10 @@ from .serializers import (
     UserBasicInfoSerializer,
     UserAvatarSerializer,
     UserEmailUpdateSerializer,
-    UserEmailVerifySendSerializer,
+    UserEmailSendSerializer,
+    UserMobileUpdateSerializer,
+    UserMobileVerifySendSerializer,
+    UserEmailActivateSerializer,
 )
 
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -368,7 +373,7 @@ class UserEmailUpdateView(UpdateAPIView):
 class UserEmailVerifySendView(GenericAPIView):
     """用户邮箱验证码发送视图"""
 
-    serializer_class = UserEmailVerifySendSerializer
+    serializer_class = UserEmailSendSerializer
     permission_classes = [IsAuthenticated, IsSelf]
 
     def post(self, request):
@@ -382,12 +387,69 @@ class UserEmailVerifySendView(GenericAPIView):
         return Response({"detail": "邮箱验证码发送成功"}, status=status.HTTP_200_OK)
 
 
-#
-# class UserActivateView(GenericAPIView):
-#     """用户激活视图"""
-#
-#     serializer_class = UserActivateSerializer
-#     permission_classes = [IsAuthenticated, IsSelf]
-#
-#     def post(self, request):
-#         return Response({"message": "邮箱激活成功"}, status=status.HTTP_200_OK)
+class UserActivateSendView(GenericAPIView):
+    """用户激活链接发送视图"""
+
+    serializer_class = UserEmailSendSerializer
+    permission_classes = [IsAuthenticated, IsSelf]
+
+    def post(self, request):
+        # 检查是否已经激活
+        if request.user.is_active_account:
+            return Response({"activate": "当前用户已经激活"}, status=status.HTTP_200_OK)
+
+        # 校验数据
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # 发送验证码
+        email = serializer.validated_data["email"]
+        EmailService.send_activate_code(email)
+        logger.info(f"用户{request.user.id}发送邮箱激活链接成功，邮箱地址：{email}")
+        return Response({"activate": "邮箱激活链接发送成功"}, status=status.HTTP_200_OK)
+
+
+class UserActivateVerifyView(GenericAPIView):
+    """用户激活链接验证视图"""
+
+    serializer_class = UserEmailActivateSerializer
+    permission_classes = [IsAuthenticated, IsSelf]
+
+    def get(self, request):
+        # 校验数据
+        serializer = self.get_serializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+
+        # 激活用户
+        request.user.is_active_account = True
+        request.user.save()
+        logger.info(f"用户{request.user.id}激活成功")
+        return Response({"activate": "用户激活成功"}, status=status.HTTP_200_OK)
+
+
+class UserMobileUpdateView(UpdateAPIView):
+    """用户手机号修改视图（验证验证码）"""
+
+    serializer_class = UserMobileUpdateSerializer
+    permission_classes = [IsAuthenticated, IsSelf]
+
+    def get_object(self):
+        return self.request.user
+
+
+class UserMobileVerifySendView(GenericAPIView):
+    """用户手机号验证码发送视图"""
+
+    serializer_class = UserMobileVerifySendSerializer
+    permission_classes = [IsAuthenticated, IsSelf]
+
+    def post(self, request):
+        # 校验数据
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        # 发送验证码
+        mobile = serializer.validated_data["mobile"]
+        random_code = random.randint(100000, 999999)
+        SMSService.send_code(mobile, random_code)
+        logger.info(f"用户{request.user.id}发送手机验证码成功，手机号：{mobile}")
+        return Response({"detail": "手机验证码发送成功"}, status=status.HTTP_200_OK)
