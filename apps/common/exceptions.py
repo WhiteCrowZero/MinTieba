@@ -5,7 +5,7 @@ from rest_framework import status
 import logging
 
 # 获取自定义业务日志
-logger = logging.getLogger('feat')
+logger = logging.getLogger("feat")
 
 
 def database_exception_handler(exc, context):
@@ -38,3 +38,15 @@ def database_exception_handler(exc, context):
             )
 
     return response
+
+
+class MinioOperationError(Exception):
+    """封装 MinIO 操作异常"""
+
+    pass
+
+
+class UploadImageError(Exception):
+    """上传服务异常"""
+
+    pass

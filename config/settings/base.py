@@ -311,3 +311,18 @@ EMAIL_ACTIVATE_RETURN_URL = os.getenv("EMAIL_ACTIVATE_RETURN_URL", "")
 
 # 默认头像URL
 DEFAULT_AVATAR_URL = os.getenv("DEFAULT_AVATAR_URL", "")
+
+# MinIO / OSS 配置
+MINIO_ENDPOINT = "127.0.0.1:9000"
+MINIO_ACCESS_KEY = "admin"
+MINIO_SECRET_KEY = "admin123"
+MINIO_BUCKET_NAME = "mini-tieba"
+MINIO_USE_SSL = False
+DEFAULT_IMAGE_FOLDER_NAME = "images"
+
+
+# 限制与策略
+OSS_MAX_IMAGE_SIZE = 5 * 1024 * 1024        # 默认 5 MB
+OSS_ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
+OSS_MAX_IMAGE_WIDTH = 2000                   # 压缩时的最大宽度（可配置）
+OSS_DEFAULT_IMAGE_QUALITY = 85               # JPEG 压缩质量

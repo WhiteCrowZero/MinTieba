@@ -1,13 +1,13 @@
 import logging
 from django.utils import timezone
 from django.contrib.auth import get_user_model
-from rest_framework.exceptions import ValidationError, NotFound
+from rest_framework.exceptions import NotFound
 
 from rest_framework.generics import (
     GenericAPIView,
     RetrieveAPIView,
-    UpdateAPIView,
     RetrieveUpdateAPIView,
+    UpdateAPIView,
 )
 from rest_framework.views import APIView
 from rest_framework_simplejwt.token_blacklist.models import (
@@ -22,6 +22,8 @@ from .serializers import (
     LogoutSerializer,
     ResetPasswordSerializer,
     UserProfileSerializer,
+    UserBasicInfoSerializer,
+    UserAvatarSerializer,
 )
 
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -300,6 +302,34 @@ class ResetPasswordView(GenericAPIView):
 #         return UserContactSerializer
 
 
+class UserBasicInfoView(RetrieveAPIView):
+    """用户基本信息展示视图"""
+
+    serializer_class = UserBasicInfoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        pk = self.kwargs.get("pk")
+        if pk:
+            try:
+                user = UserAccount.active_objects.get(pk=pk)
+            except UserAccount.DoesNotExist:
+                raise NotFound(detail="当前用户不存在或已注销")
+            return user
+        else:
+            raise NotFound(detail="当前用户不存在或已注销")
+
+
+class UserBasicInfoUpdateView(UpdateAPIView):
+    """用户基本信息更新视图"""
+
+    serializer_class = UserBasicInfoSerializer
+    permission_classes = [IsAuthenticated, IsSelf]
+
+    def get_object(self):
+        return self.request.user
+
+
 class UserProfileView(RetrieveAPIView):
     """用户资料展示视图"""
 
@@ -314,8 +344,9 @@ class UserProfileView(RetrieveAPIView):
             except UserAccount.DoesNotExist:
                 raise NotFound(detail="当前用户不存在或已注销")
             return user.profile
-        # 默认返回自己
-        return self.request.user.profile
+        else:
+            raise NotFound(detail="当前用户不存在或已注销")
+
 
 class UserProfileRetrieveUpdateView(RetrieveUpdateAPIView):
     """用户资料修改视图"""
@@ -324,7 +355,23 @@ class UserProfileRetrieveUpdateView(RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated, IsSelf]
 
     def get_object(self):
-        return self.request.user.profile
+        try:
+            profile = UserProfile.objects.get(user=self.request.user)
+            return profile
+        except Exception as e:
+            logger.error(
+                f"获取用户扩展资料失败，原因：{str(e)}，用户id：{self.request.user.id}"
+            )
+            raise NotFound(detail="当前用户不存在或已注销")
+
+class UserAvatarView(UpdateAPIView):
+    """用户头像查看、修改视图"""
+
+    serializer_class = UserAvatarSerializer
+    permission_classes = [IsAuthenticated, IsSelf]
+
+    def get_object(self):
+        return self.request.user
 
 
 #

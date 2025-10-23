@@ -10,6 +10,7 @@ class IsSelf(BasePermission):
     def has_object_permission(self, request, view, obj):
         return request.user == obj
 
+
 class CanViewUserProfile(BasePermission):
     """
     根据用户隐私设置判断是否允许访问
@@ -29,7 +30,9 @@ class CanViewUserProfile(BasePermission):
         if privacy == VisibilityChoices.PUBLIC:
             return True
         elif privacy == VisibilityChoices.FOLLOW:
-            return UserFollow.objects.filter(user=obj, followed_user=request.user).exists()
+            return UserFollow.objects.filter(
+                user=obj, followed_user=request.user
+            ).exists()
         elif privacy == VisibilityChoices.PRIVATE:
             return False
 

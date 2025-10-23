@@ -1,13 +1,17 @@
+import logging
 from django.conf import settings
 from django.contrib.auth import get_user_model, authenticate
 from django.db import transaction
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
+from common.utils.oss_utils import MinioClientWrapper
 from .models import UserProfile
 from apps.common.auth import CaptchaValidateMixin
+from apps.common.utils.oss_utils import OssService
 
-User = get_user_model()
+UserModel = get_user_model()
+logger = logging.getLogger("feat")
 
 
 class RegisterSerializer(CaptchaValidateMixin, serializers.ModelSerializer):
@@ -21,13 +25,15 @@ class RegisterSerializer(CaptchaValidateMixin, serializers.ModelSerializer):
     username = serializers.CharField(
         required=True,
         validators=[
-            UniqueValidator(queryset=User.objects.all(), message="该用户名已被使用")
+            UniqueValidator(
+                queryset=UserModel.objects.all(), message="该用户名已被使用"
+            )
         ],
     )
     email = serializers.EmailField(
         required=True,
         validators=[
-            UniqueValidator(queryset=User.objects.all(), message="该邮箱已被注册")
+            UniqueValidator(queryset=UserModel.objects.all(), message="该邮箱已被注册")
         ],
     )
 
@@ -36,7 +42,7 @@ class RegisterSerializer(CaptchaValidateMixin, serializers.ModelSerializer):
     captcha_code = serializers.CharField(write_only=True)
 
     class Meta:
-        model = User
+        model = UserModel
         fields = [
             "username",
             "email",
@@ -55,8 +61,8 @@ class RegisterSerializer(CaptchaValidateMixin, serializers.ModelSerializer):
         return attrs
 
     def validate_username(self, value):
-        if "@" in value:
-            raise serializers.ValidationError({"username": "不能含有 @ 符号"})
+        if "@" in value or "_" in value:
+            raise serializers.ValidationError({"username": "不能含有 @ 或 _ 符号"})
         return value
 
     def create(self, validated_data):
@@ -71,7 +77,7 @@ class RegisterSerializer(CaptchaValidateMixin, serializers.ModelSerializer):
         # 事务保证用户主模型account和对应的profile表一起创建
         with transaction.atomic():
             # 其余字段创建模型
-            user = User(**validated_data)
+            user = UserModel(**validated_data)
             user.set_password(password)
             user.save()
 
@@ -109,6 +115,8 @@ class LoginSerializer(serializers.Serializer):
 
 
 class LogoutSerializer(serializers.Serializer):
+    """登出序列化器"""
+
     refresh = serializers.CharField()
 
 
@@ -125,6 +133,8 @@ class ResetPasswordSerializer(serializers.Serializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    """用户扩展信息展示/修改序列化器"""
+
     class Meta:
         model = UserProfile
         fields = [
@@ -144,3 +154,85 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "signature": {"required": False},
             "privacy_settings": {"required": False},
         }
+
+
+class UserBasicInfoSerializer(serializers.ModelSerializer):
+    """用户基本信息展示/修改序列化器"""
+
+    username = serializers.CharField(
+        required=False,
+        validators=[
+            UniqueValidator(
+                queryset=UserModel.objects.all(), message="该用户名已被使用"
+            )
+        ],
+    )
+
+    class Meta:
+        model = UserModel
+        fields = [
+            "id",
+            "username",
+            "email",
+            "mobile",
+            "avatar_url",
+            "bio",
+            "gender",
+        ]
+        read_only_fields = ["id", "email", "mobile", "avatar_url"]
+        extra_kwargs = {
+            "bio": {"required": False},
+            "gender": {"required": False},
+        }
+
+    def validate_username(self, value):
+        if "@" in value or "_" in value:
+            raise serializers.ValidationError({"username": "不能含有 @ 或 _ 符号"})
+        return value
+
+
+class UserAvatarSerializer(serializers.ModelSerializer):
+    """用户头像查看、修改序列化器"""
+
+    avatar_file = serializers.ImageField(write_only=True, required=True)
+
+    class Meta:
+        model = UserModel
+        fields = ["avatar_file", "avatar_url"]
+        read_only_fields = ["avatar_url"]
+
+    def validate_avatar_file(self, f):
+        if f.size > getattr(settings, "OSS_MAX_IMAGE_SIZE", 5 * 1024 * 1024):
+            raise serializers.ValidationError("文件大小超过限制")
+        return f
+
+    def update(self, instance, validated_data):
+        # 取出上传文件
+        logger.info(f"用户 {self.context['request'].user} 正在上传图片")
+        avatar_file = validated_data.pop("avatar_file", None)
+        if avatar_file:
+            # 上传到 OSS，返回 URL
+            try:
+                oss_url = self.upload_to_oss(avatar_file)
+                instance.avatar_url = oss_url
+            except Exception as e:
+                logger.error(f"用户 {self.context['request'].user} 上传图片失败: {e}")
+                raise serializers.ValidationError("上传图片失败")
+        else:
+            logger.warning(f"用户 {self.context['request'].user} 没有上传图片")
+            return instance
+
+        instance.save()
+        logger.info(f"用户 {self.context['request'].user} 上传图片成功")
+        return instance
+
+    def upload_to_oss(self, file):
+        """上传文件到 OSS，并返回 URL"""
+        data = OssService.upload_image(
+            uploaded_file=file,
+            folder_name="avatar",
+            compress=True,
+            client_wrapper=MinioClientWrapper,  # 压缩
+        )
+        oss_url = data.get("url")
+        return oss_url
