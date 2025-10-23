@@ -1,5 +1,4 @@
 from django.contrib.auth import get_user_model
-from posts.models import Post
 from django.db import models
 
 # 用户主模型
@@ -32,7 +31,7 @@ class Comment(models.Model):
     """评论表"""
 
     post = models.ForeignKey(
-        Post, on_delete=models.CASCADE, related_name="comments", verbose_name="帖子"
+        "posts.Post", on_delete=models.CASCADE, related_name="comments", verbose_name="帖子"
     )
     parent = models.ForeignKey(
         "self",
@@ -125,13 +124,16 @@ class CollectionItem(models.Model):
         verbose_name="用户",
     )
     folder = models.ForeignKey(
-        CollectionFolder,
+        "interactions.CollectionFolder",
         on_delete=models.CASCADE,
         related_name="items",
         verbose_name="收藏夹",
     )
     post = models.ForeignKey(
-        Post, on_delete=models.CASCADE, related_name="collected_by", verbose_name="帖子"
+        "posts.Post",
+        on_delete=models.CASCADE,
+        related_name="collected_by",
+        verbose_name="帖子",
     )
     is_deleted = models.BooleanField(default=False, verbose_name="是否删除")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
@@ -250,7 +252,7 @@ class PrivateMessage(models.Model):
     """私信消息表"""
 
     thread = models.ForeignKey(
-        MessageThread,
+        "interactions.MessageThread",
         on_delete=models.CASCADE,
         related_name="messages",
         verbose_name="会话",

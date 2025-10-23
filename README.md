@@ -1,5 +1,5 @@
 # MinTieba
->模仿百度贴吧
+> 模仿百度贴吧的练习小项目
 
 ## 基本内容概览
 ### 项目目录结构
@@ -114,7 +114,6 @@ MinTieba/                       ← 根目录（项目仓库根）
 │      └─ settings_override.json
 │
 ├─ logs/                       ← 日志文件
-│  ├─ gunicorn.log
 │  ├─ django.log
 │  ├─ error.log
 │  └─ access.log

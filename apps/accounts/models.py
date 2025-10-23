@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import AbstractUser, UserManager
 
 
 # ========== RBAC 权限相关表 ==========
@@ -46,10 +47,16 @@ class RolePermissionMap(models.Model):
     """角色-权限映射表"""
 
     role = models.ForeignKey(
-        Role, on_delete=models.PROTECT, related_name="permissions", verbose_name="角色"
+        "accounts.Role",
+        on_delete=models.PROTECT,
+        related_name="permissions",
+        verbose_name="角色",
     )
     permission = models.ForeignKey(
-        Permission, on_delete=models.PROTECT, related_name="roles", verbose_name="权限"
+        "accounts.Permission",
+        on_delete=models.PROTECT,
+        related_name="roles",
+        verbose_name="权限",
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
 
@@ -78,14 +85,25 @@ class VisibilityChoices(models.TextChoices):
     """隐私设置枚举"""
 
     PUBLIC = "public", "公开"
-    FRIENDS = "friends", "仅好友"
+    FOLLOW = "follow", "仅关注"
     PRIVATE = "private", "私密"
+
+
+# ========== 用户管理 ==========
+
+
+class ActiveUserManager(UserManager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active_account=True, is_deleted=False)
+
+    def all_with_deleted(self):
+        return super().get_queryset()
 
 
 # ========== 用户主信息表 ==========
 
 
-class UserAccount(models.Model):
+class UserAccount(AbstractUser):
     """用户主信息表"""
 
     username = models.CharField(max_length=150, unique=True, verbose_name="用户名")
@@ -95,7 +113,7 @@ class UserAccount(models.Model):
         max_length=20, blank=True, null=True, verbose_name="手机号"
     )
     role = models.ForeignKey(
-        Role,
+        "accounts.Role",
         on_delete=models.SET_NULL,
         null=True,
         related_name="users",
@@ -109,10 +127,16 @@ class UserAccount(models.Model):
         default=GenderChoices.OTHER,
         verbose_name="性别",
     )
-    is_active = models.BooleanField(default=True, verbose_name="是否激活")
+    # 用户是否激活（业务逻辑用，系统的 is_activate 保留，用作系统逻辑）
+    is_active_account = models.BooleanField(default=False, verbose_name="是否激活")
     is_banned = models.BooleanField(default=False, verbose_name="是否封禁")
+    is_deleted = models.BooleanField(default=False, verbose_name="是否注销")
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="注销时间")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    objects = UserManager()  # 默认管理器，不过滤
+    active_objects = ActiveUserManager()  # 专门用于活跃用户的管理器
 
     class Meta:
         db_table = "user_account"
@@ -131,7 +155,7 @@ class UserProfile(models.Model):
     """用户扩展信息表"""
 
     user = models.OneToOneField(
-        UserAccount,
+        "accounts.UserAccount",
         on_delete=models.CASCADE,
         related_name="profile",
         verbose_name="用户",
@@ -143,7 +167,7 @@ class UserProfile(models.Model):
     signature = models.CharField(
         max_length=255, blank=True, null=True, verbose_name="个性签名"
     )
-    exp_points = models.IntegerField(default=0, verbose_name="经验值")
+    exp_points = models.PositiveIntegerField(default=0, verbose_name="经验值")
     level = models.PositiveIntegerField(default=1, verbose_name="等级")
     last_login_ip = models.GenericIPAddressField(
         blank=True, null=True, verbose_name="最后登录IP"
@@ -151,9 +175,11 @@ class UserProfile(models.Model):
     privacy_settings = models.CharField(
         max_length=50,
         choices=VisibilityChoices.choices,
-        default=VisibilityChoices.FRIENDS,
+        default=VisibilityChoices.FOLLOW,
         verbose_name="隐私设置",
     )
+    is_deleted = models.BooleanField(default=False, verbose_name="是否注销")
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="注销时间")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
@@ -173,7 +199,7 @@ class UserLoginHistory(models.Model):
     """用户登录历史表"""
 
     user = models.ForeignKey(
-        UserAccount,
+        "accounts.UserAccount",
         on_delete=models.CASCADE,
         related_name="login_history",
         verbose_name="用户",

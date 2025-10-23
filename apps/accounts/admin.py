@@ -88,17 +88,22 @@ class UserAccountAdmin(admin.ModelAdmin):
         "mobile",
         "role",
         "is_active",
+        "is_active_account",
+        "is_deleted",
         "is_banned",
         "created_at",
     )
     search_fields = ("username", "email", "mobile")
-    list_filter = ("is_active", "is_banned", "role")
+    list_filter = ("is_active", "is_deleted", "is_active_account", "is_banned", "role")
     readonly_fields = ("created_at", "updated_at")
     inlines = [UserProfileInline, UserLoginHistoryInline]
     list_per_page = 25
     fieldsets = (
         ("基础信息", {"fields": ("username", "password", "email", "mobile", "role")}),
-        ("状态信息", {"fields": ("is_active", "is_banned")}),
+        (
+            "状态信息",
+            {"fields": ("is_active", "is_deleted", "is_active_account", "is_banned")},
+        ),
         ("个性信息", {"fields": ("avatar_url", "bio", "gender")}),
         ("系统信息", {"fields": ("created_at", "updated_at")}),
     )

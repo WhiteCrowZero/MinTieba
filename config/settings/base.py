@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
+
 from datetime import timedelta
 from pathlib import Path
 
@@ -17,7 +18,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 import sys
 
 sys.path.insert(0, str(BASE_DIR / "apps"))
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -43,14 +43,14 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # others
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
-    "drf_spectacular",
     # project
     "accounts",
     "forums",
     "posts",
     "interactions",
-    "operations",
+    # "operations",
 ]
 
 MIDDLEWARE = [
@@ -137,15 +137,21 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
-    # # 异常处理
-    # 'EXCEPTION_HANDLER': 'exceptions.custom_exception_handler',
-
-    # 文档配置
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # 异常处理
+    "EXCEPTION_HANDLER": "common.exceptions.database_exception_handler",
+    # 分页
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 10,  # 每页显示的文章数量
+    # 认证
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    # 渲染器
+    "DEFAULT_RENDERER_CLASSES": ("apps.common.response_renders.UnifiedJSONRenderer",),
 }
 
 # SimpleUI 配置
-SIMPLEUI_DEFAULT_THEME = 'admin.e-blue-pro.css'
+SIMPLEUI_DEFAULT_THEME = "admin.e-blue-pro.css"
 
 # JWT 设置
 SIMPLE_JWT = {
@@ -158,11 +164,182 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-# Swagger API 文档配置
-SPECTACULAR_SETTINGS = {
-    'TITLE': 'MinTieba Project API',
-    'DESCRIPTION': 'MinTieba 项目 API 文档',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
-    'SECURITY': [{'Bearer': []}],  # 告诉 OpenAPI 使用 Bearer token
+
+# 配置日志
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    # 日志格式
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name} {message} (Process:{process:d} Thread:{thread:d})",
+            "style": "{",
+            "datefmt": "%Y-%m-%d %H:%M:%S",  # 添加日期格式，便于阅读
+        },
+        "simple": {
+            "format": "{levelname}: {message}",
+            "style": "{",
+        },
+    },
+    # 日志输出
+    "handlers": {
+        # 控制台（开发用，生产设为WARNING）
+        "console": {
+            "level": "DEBUG" if DEBUG else "WARNING",
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+        # 所有日志（INFO+，按天旋转）
+        "django_file": {
+            "level": "INFO",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": str(BASE_DIR / "logs/django.log"),
+            "formatter": "verbose",
+            "when": "midnight",  # 每天午夜旋转
+            "interval": 1,
+            "backupCount": 30,  # 保留30天
+            "encoding": "utf-8",
+            "delay": True,
+        },
+        # 访问日志（专用于HTTP访问，可与Gunicorn集成）
+        "access_file": {
+            "level": "INFO",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": str(BASE_DIR / "logs/access.log"),
+            "formatter": "verbose",
+            "when": "midnight",
+            "interval": 1,
+            "backupCount": 30,
+            "encoding": "utf-8",
+            "delay": True,
+        },
+        # 错误日志（ERROR+）
+        "error_file": {
+            "level": "ERROR",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": str(BASE_DIR / "logs/error.log"),
+            "formatter": "verbose",
+            "when": "midnight",
+            "interval": 1,
+            "backupCount": 15,  # 错误日志保留15天
+            "encoding": "utf-8",
+            "delay": True,
+        },
+    },
+    # 日志管理器
+    "root": {
+        "handlers": ["console", "django_file", "error_file"],
+        "level": "WARNING",  # root默认WARNING，避免过多日志
+    },
+    "loggers": {
+        # Django 框架日志
+        "django": {
+            "handlers": ["console", "django_file", "error_file"],
+            "level": "INFO",
+            "propagate": True,  # 传播到root
+        },
+        # HTTP请求日志（包括404/500）
+        "django.request": {
+            "handlers": ["access_file", "error_file"],
+            "level": "WARNING",  # 只记录WARNING+，避免过多访问日志
+            "propagate": False,  # 不传播，独立管理
+        },
+        # 业务日志（自定义模块，如app.feat）
+        "feat": {
+            "handlers": ["console", "django_file", "error_file"],
+            "level": "INFO",
+            "propagate": False,  # 独立，不传播到django/root
+        },
+    },
 }
+
+# 自定义登录校验（支持用户名或者邮箱）
+AUTHENTICATION_BACKENDS = [
+    "common.auth.EmailOrUsernameBackend",
+]
+
+# 指定用户模型
+AUTH_USER_MODEL = "accounts.UserAccount"
+
+import os
+from dotenv import load_dotenv
+
+env_path = BASE_DIR / "deploy" / "configs" / ".env"
+load_dotenv(dotenv_path=env_path)
+
+# 默认缓存过期时间
+DEFAULT_EXPIRE_SECONDS = os.getenv("DEFAULT_EXPIRE_SECONDS", 300)
+CAPTCHA_EXPIRE_SECONDS = os.getenv("CAPTCHA_EXPIRE_SECONDS", 300)
+EMAIL_EXPIRE_SECONDS = os.getenv("EMAIL_EXPIRE_SECONDS", 300)
+SMS_CODE_EXPIRE_SECONDS = os.getenv("SMS_CODE_EXPIRE_SECONDS", 300)
+
+# 缓存配置
+REDIS_URL = os.getenv("REDIS_BASE_URL", "redis://127.0.0.1:6379")
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"{REDIS_URL}/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    },
+    "captcha": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"{REDIS_URL}/2",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    },
+    "email": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"{REDIS_URL}/3",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    },
+    "sms": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"{REDIS_URL}/4",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    },
+}
+
+# 邮箱设置
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.163.com")
+EMAIL_PORT = os.getenv("EMAIL_PORT", 25)
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = True  # 是否使用TLS安全连接
+# 邮箱验证回调地址
+EMAIL_ACTIVATE_RETURN_URL = os.getenv(
+    "EMAIL_ACTIVATE_RETURN_URL", "http://127.0.0.1:8000"
+)
+
+# 默认头像URL
+DEFAULT_AVATAR_URL = os.getenv("DEFAULT_AVATAR_URL", "")
+
+# MinIO / OSS 配置
+MINIO_ENDPOINT = os.getenv("MINIO_ACCESS_KEY", "127.0.0.1:9000")
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "")
+MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "mini-tieba")
+MINIO_USE_SSL = False
+DEFAULT_IMAGE_FOLDER_NAME = os.getenv("DEFAULT_IMAGE_FOLDER_NAME", "images")
+
+
+# 限制与策略
+OSS_MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 默认 5 MB
+OSS_ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
+OSS_MAX_IMAGE_WIDTH = 2000  # 压缩时的最大宽度（可配置）
+OSS_DEFAULT_IMAGE_QUALITY = 85  # JPEG 压缩质量
+
+
+# 腾讯 sms 短信服务配置
+TENCENTCLOUD_SECRET_ID = os.getenv("TENCENTCLOUD_SECRET_ID", "")
+TENCENTCLOUD_SECRET_KEY = os.getenv("TENCENTCLOUD_SECRET_KEY", "")
+TENCENT_SMS_APP_ID = os.getenv("TENCENT_SMS_APP_ID", "")
+TENCENT_SMS_SIGN = os.getenv("TENCENT_SMS_SIGN", "")
+TENCENT_SMS_TEMPLATE_ID = os.getenv("TENCENT_SMS_TEMPLATE_ID", "")

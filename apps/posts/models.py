@@ -1,8 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import models
 
-from forums.models import Forum
-
 # 用户主模型
 UserModel = get_user_model()
 
@@ -13,7 +11,7 @@ class Post(models.Model):
     """帖子主表"""
 
     forum = models.ForeignKey(
-        Forum, on_delete=models.CASCADE, related_name="posts", verbose_name="所属贴吧"
+        "forums.Forum", on_delete=models.CASCADE, related_name="posts", verbose_name="所属贴吧"
     )
     author = models.ForeignKey(
         UserModel, on_delete=models.CASCADE, related_name="posts", verbose_name="作者"
@@ -48,7 +46,7 @@ class PostImage(models.Model):
     """帖子图片"""
 
     post = models.ForeignKey(
-        Post, on_delete=models.CASCADE, related_name="images", verbose_name="帖子"
+        "posts.Post", on_delete=models.CASCADE, related_name="images", verbose_name="帖子"
     )
     image_url = models.URLField(verbose_name="图片URL")
     order_index = models.PositiveIntegerField(default=0, verbose_name="排序")
@@ -90,7 +88,7 @@ class PostTagMap(models.Model):
     """帖子与标签映射"""
 
     post = models.ForeignKey(
-        Post, on_delete=models.CASCADE, related_name="tag_mappings", verbose_name="帖子"
+        "posts.Post", on_delete=models.CASCADE, related_name="tag_mappings", verbose_name="帖子"
     )
     tag = models.ForeignKey(
         PostTag,
