@@ -51,7 +51,6 @@ INSTALLED_APPS = [
     "posts",
     "interactions",
     # "operations",
-    "verification",
 ]
 
 MIDDLEWARE = [
@@ -307,7 +306,7 @@ EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = True  # 是否使用TLS安全连接
 # 邮箱验证回调地址
-EMAIL_ACTIVATE_RETURN_URL = os.getenv("EMAIL_ACTIVATE_RETURN_URL", "")
+EMAIL_ACTIVATE_RETURN_URL = os.getenv("EMAIL_ACTIVATE_RETURN_URL", "http://127.0.0.1:8000")
 
 # 默认头像URL
 DEFAULT_AVATAR_URL = os.getenv("DEFAULT_AVATAR_URL", "")

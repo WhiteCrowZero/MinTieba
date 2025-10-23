@@ -1,4 +1,8 @@
+import base64
 import logging
+import uuid
+
+from captcha.image import ImageCaptcha
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from rest_framework.exceptions import NotFound
@@ -9,12 +13,14 @@ from rest_framework.generics import (
     RetrieveUpdateAPIView,
     UpdateAPIView,
 )
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.token_blacklist.models import (
     OutstandingToken,
     BlacklistedToken,
 )
 
+from common.utils.cache_utils import CacheService
 from .models import UserProfile, GenderChoices, UserAccount
 from .serializers import (
     RegisterSerializer,
@@ -24,6 +30,8 @@ from .serializers import (
     UserProfileSerializer,
     UserBasicInfoSerializer,
     UserAvatarSerializer,
+    UserEmailUpdateSerializer,
+    UserEmailVerifySendSerializer,
 )
 
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -36,7 +44,11 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from apps.common.permissions import IsSelf, CanViewUserProfile
-from apps.common.auth import generate_tokens_for_user
+from apps.common.auth import (
+    generate_tokens_for_user,
+    make_random_code,
+    CaptchaValidateMixin,
+)
 from apps.common.utils.email_utils import EmailService
 
 User = get_user_model()
@@ -54,7 +66,7 @@ class RegisterView(GenericAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         # 发送邮件激活链接
-        EmailService.send_activate_code(user.id, user.email)
+        EmailService.send_activate_code(user.email)
         # 签发 token（包含 Access 和 Refresh）
         access_token, refresh_token = generate_tokens_for_user(user)
         logger.info(f"{user.id}:{user.username}普通注册成功")
@@ -227,81 +239,6 @@ class ResetPasswordView(GenericAPIView):
             )
 
 
-#
-# class OauthLoginView(GenericAPIView):
-#     """第三方登录视图（可以选择登录后绑定，未绑定新创建账户）"""
-#
-#     serializer_class = OauthLoginSerializer
-#     permission_classes = [AllowAny]
-#
-#     def post(self, request):
-#         serializer = self.get_serializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-#
-#         type = serializer.validated_data["type"]
-#         openid = serializer.validated_data["openid"]
-#
-#         try:
-#             # 有相关账号直接登录（登录）
-#             user_contact = UserContact.objects.get(type=type, openid=openid)
-#             user = user_contact.user
-#         except UserContact.DoesNotExist:
-#             # 没有相关账号，创建新账号（注册）
-#             with transaction.atomic():
-#                 # 创建 User
-#                 user = User.objects.create_user(
-#                     username=f"{type}-{uuid.uuid4()}",
-#                     password=auth.make_random_password(),
-#                     is_active_account=True,
-#                 )
-#
-#                 # 创建 UserContact
-#                 user_contact = UserContact.objects.create(
-#                     user=user, type=type, openid=openid, is_bound=True
-#                 )
-#
-#         access_token, refresh_token = auth.generate_tokens_for_user(user)
-#         return Response(
-#             {
-#                 "user_id": user.id,
-#                 "username": user.username,
-#                 "access": access_token,
-#                 "refresh": refresh_token,
-#             }
-#         )
-#
-#
-# class UserContactView(ListCreateAPIView):
-#     """用户绑定的第三方登录方式视图，展示或创建"""
-#
-#     serializer_class = UserContactSerializer
-#     pagination_class = None  # 关闭分页
-#
-#     def get_queryset(self):
-#         return UserContact.objects.filter(user=self.request.user)
-#
-#
-# class UserContactDetailView(RetrieveUpdateDestroyAPIView):
-#     """用户绑定的第三方登录方式视图，修改或删除"""
-#
-#     lookup_field = "type"  # URL中传 type
-#
-#     def get_object(self):
-#         type = self.kwargs["type"]
-#         obj, _ = UserContact.objects.get_or_create(user=self.request.user, type=type)
-#         return obj
-#
-#     def get_serializer_class(self):
-#         # 更新使用 code 为 write_only 的序列化器
-#         if self.request.method in ["PUT", "PATCH"]:
-#             return UserContactBindSerializer
-#         # 删除使用不需要 code 的序列化器
-#         elif self.request.method == "DELETE":
-#             return UserContactUnbindSerializer
-#         # 其余如 get 可以直接获取对应的绑定联系方式的信息
-#         return UserContactSerializer
-
-
 class UserBasicInfoView(RetrieveAPIView):
     """用户基本信息展示视图"""
 
@@ -364,6 +301,7 @@ class UserProfileRetrieveUpdateView(RetrieveUpdateAPIView):
             )
             raise NotFound(detail="当前用户不存在或已注销")
 
+
 class UserAvatarView(UpdateAPIView):
     """用户头像查看、修改视图"""
 
@@ -374,14 +312,82 @@ class UserAvatarView(UpdateAPIView):
         return self.request.user
 
 
+class CaptchaRateThrottle(AnonRateThrottle):
+    rate = "5/min"  # 每个IP每分钟最多访问5次
+
+
+class EmailSendRateThrottle(UserRateThrottle):
+    rate = "1/min"  # 每个用户每分钟最多访问1次
+
+
+class ImageCaptchaView(GenericAPIView):
+    """图片验证码"""
+
+    permission_classes = [AllowAny]
+    throttle_classes = [CaptchaRateThrottle]
+
+    def get(self, request):
+        """生成图片验证码并返回给前端"""
+        # 生成随机验证码
+        code = make_random_code()
+
+        # 生成验证码图片
+        image = ImageCaptcha(width=280, height=90)
+        img_bytes = image.generate(code).read()
+        img_base64 = base64.b64encode(img_bytes).decode("utf-8")
+
+        # 将验证码保存到 Redis
+        captcha_id = str(uuid.uuid4()).replace("-", "")
+        key = f"captcha:{captcha_id}"
+        code = code.lower()
+        CacheService.set_value(
+            key,
+            code,
+            cache=CaptchaValidateMixin.CAPTCHA_CACHE_NAME,
+            exp=int(settings.CAPTCHA_EXPIRE_SECONDS),
+        )
+
+        # 组织响应数据
+        data = {
+            "captcha_id": captcha_id,
+            "captcha_image": f"data:image/png;base64,{img_base64}",
+        }
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class UserEmailUpdateView(UpdateAPIView):
+    """用户邮箱修改视图（验证验证码）"""
+
+    serializer_class = UserEmailUpdateSerializer
+    permission_classes = [IsAuthenticated, IsSelf]
+
+    def get_object(self):
+        return self.request.user
+
+
+class UserEmailVerifySendView(GenericAPIView):
+    """用户邮箱验证码发送视图"""
+
+    serializer_class = UserEmailVerifySendSerializer
+    permission_classes = [IsAuthenticated, IsSelf]
+
+    def post(self, request):
+        # 校验数据
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        # 发送验证码
+        email = serializer.validated_data["email"]
+        EmailService.send_verify(email)
+        logger.info(f"用户{request.user.id}发送邮箱验证码成功，邮箱地址：{email}")
+        return Response({"detail": "邮箱验证码发送成功"}, status=status.HTTP_200_OK)
+
+
 #
-# class UserAvatarView(RetrieveUpdateDestroyAPIView):
-#     """用户头像查看、修改、删除视图"""
+# class UserActivateView(GenericAPIView):
+#     """用户激活视图"""
 #
-#     serializer_class = UserAvatarSerializer
-#     permission_classes = [IsAuthenticated, IsSelf, IsActiveAccount]
-#     lookup_field = "id"  # 指定查找字段，但其实下面 get_object 会直接用 request.user
+#     serializer_class = UserActivateSerializer
+#     permission_classes = [IsAuthenticated, IsSelf]
 #
-#     def get_object(self):
-#         # 直接返回当前登录用户
-#         return self.request.user
+#     def post(self, request):
+#         return Response({"message": "邮箱激活成功"}, status=status.HTTP_200_OK)

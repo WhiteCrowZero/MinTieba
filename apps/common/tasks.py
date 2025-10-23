@@ -22,7 +22,7 @@ HTML_MESSAGES = {
                         <p>如果您未进行过本网站的注册操作，请忽略此邮件。</p>
                         <hr>
                         <p style="color: gray; font-size: 12px;">此邮件由系统自动发送，请勿直接回复。</p>
-                    """
+                    """,
     },
     "verify": {
         "subject": "MiniTieba 邮箱验证邮件",
@@ -34,25 +34,27 @@ HTML_MESSAGES = {
                         <p>如果您未进行过本网站的邮箱更改操作，请及时查看您的账户是否被盗。</p>
                         <hr>
                         <p style="color: gray; font-size: 12px;">此邮件由系统自动发送，请勿直接回复。</p>
-                    """
+                    """,
     },
 }
 
 
 @app.task
-def send_email(email_recv, verify_code, mode='activate'):
+def send_email(email_recv, verify_code, mode="activate"):
     try:
         # 收件人列表格式化
         if isinstance(email_recv, str):
             email_recv = [email_recv]
 
         if mode not in HTML_MESSAGES.keys():
-            logging.error(f'邮件发送失败: 当前类型 {mode} 错误')
+            logging.error(f"邮件发送失败: 当前类型 {mode} 错误")
             raise ValueError("Mode is error")
 
         subject = HTML_MESSAGES[mode]["subject"]
         html_message = HTML_MESSAGES[mode]["html_message"]
-        html_message = html_message.format(verify_code, int(settings.EMAIL_EXPIRE_SECONDS) // 60)
+        html_message = html_message.format(
+            verify_code, int(settings.EMAIL_EXPIRE_SECONDS) // 60
+        )
 
         # 纯文本内容（避免部分邮箱不支持 HTML）
         plain_message = strip_tags(html_message)
@@ -64,8 +66,8 @@ def send_email(email_recv, verify_code, mode='activate'):
             message=plain_message,
             from_email=from_email,
             recipient_list=email_recv,
-            html_message=html_message
+            html_message=html_message,
         )
-        logging.info(f'邮件发送到: {email_recv}')
+        logging.info(f"邮件发送到: {email_recv}")
     except Exception as e:
-        logging.error(f'邮件发送失败: {e}')
+        logging.error(f"邮件发送失败: {e}")

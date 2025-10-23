@@ -5,6 +5,7 @@ from django.db import transaction
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
+from common.utils.email_utils import EmailService
 from common.utils.oss_utils import MinioClientWrapper
 from .models import UserProfile
 from apps.common.auth import CaptchaValidateMixin
@@ -236,3 +237,79 @@ class UserAvatarSerializer(serializers.ModelSerializer):
         )
         oss_url = data.get("url")
         return oss_url
+
+
+class UserEmailUpdateSerializer(serializers.ModelSerializer):
+    """用户邮箱修改序列化器"""
+
+    email = serializers.EmailField(
+        required=True,
+        validators=[
+            UniqueValidator(queryset=UserModel.objects.all(), message="该邮箱已被注册")
+        ],
+    )
+    verify_code = serializers.CharField(required=True, write_only=True)
+
+    class Meta:
+        model = UserModel
+        fields = ["email", "verify_code"]
+        read_only_fields = ["email"]
+
+    def validate(self, attrs):
+        email = attrs.get("email")
+        verify_code = attrs.pop("verify_code")
+        # 校验验证码
+        if not EmailService.check_verify_code(email, verify_code):
+            raise serializers.ValidationError({"verify_code": "验证码错误"})
+        return attrs
+
+
+class UserEmailVerifySendSerializer(serializers.ModelSerializer):
+    """用户邮箱验证码发送序列化器"""
+
+    email = serializers.EmailField(
+        required=True,
+        validators=[
+            UniqueValidator(queryset=UserModel.objects.all(), message="该邮箱已被注册")
+        ],
+    )
+
+    class Meta:
+        model = UserModel
+        fields = ["email"]
+
+
+class UserActivateSerializer(serializers.ModelSerializer):
+    """用户激活序列化器"""
+
+    pass
+
+
+# class EmailVerifySerializer(serializers.Serializer):
+#     verify_code = serializers.CharField(required=True)
+#     email = serializers.EmailField(required=True)
+#     new_email = serializers.EmailField(required=True)
+#
+#     def validate(self, attrs):
+#         email = attrs.get('email')
+#         new_email = attrs.get('new_email')
+#
+#         if not email or not new_email:
+#             raise serializers.ValidationError({"errors": "原邮箱和新邮箱不能为空"})
+#         if email == new_email:
+#             raise serializers.ValidationError({"errors": "两次输入的邮箱不能相同"})
+#         # 校验新邮箱是否已存在
+#         if User.objects.filter(email=new_email).exists():
+#             raise serializers.ValidationError({"errors": "该邮箱已被注册"})
+#
+#         return attrs
+#
+#
+# class EmailSendVerifySerializer(serializers.Serializer):
+#     new_email = serializers.EmailField(required=True)
+#
+#     def validated_new_email(self, value):
+#         # 校验新邮箱是否已存在
+#         if User.objects.filter(email=value).exists():
+#             raise serializers.ValidationError({"errors": "该邮箱已被注册"})
+#         return value
