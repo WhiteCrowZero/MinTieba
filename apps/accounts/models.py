@@ -61,15 +61,12 @@ class Permission(models.Model):
     parent = models.ForeignKey(
         "self", null=True, blank=True, on_delete=models.CASCADE, related_name="children"
     )
-    category = models.CharField(
-        max_length=50, blank=True, null=True, verbose_name="权限分类"
-    )
 
     class Meta:
         db_table = "permission"
         verbose_name = "权限"
         verbose_name_plural = "权限列表"
-        ordering = ["category", "id"]
+        ordering = ["name", "id"]
 
     def __str__(self):
         return f"{self.name} ({self.code})"

@@ -331,7 +331,6 @@ class PermissionListSerializer(serializers.ModelSerializer):
             "type",
             "parent",
             "description",
-            "category",
             "children",
         ]
 
@@ -353,6 +352,7 @@ class RoleNestedSerializer(serializers.ModelSerializer):
 
 class PermissionNestedSerializer(serializers.ModelSerializer):
     """权限嵌套序列化器"""
+
     parent = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
