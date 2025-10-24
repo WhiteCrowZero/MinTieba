@@ -13,6 +13,7 @@ from rest_framework.generics import (
     RetrieveAPIView,
     RetrieveUpdateAPIView,
     UpdateAPIView,
+    ListAPIView,
 )
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
@@ -21,9 +22,17 @@ from rest_framework_simplejwt.token_blacklist.models import (
     BlacklistedToken,
 )
 
+from common.permissions import RBACPermission
 from common.utils.cache_utils import CacheService
 from common.utils.sms_utils import SMSService
-from .models import UserProfile, GenderChoices, UserAccount
+from .models import (
+    UserProfile,
+    GenderChoices,
+    UserAccount,
+    Role,
+    Permission,
+    RolePermissionMap,
+)
 from .serializers import (
     RegisterSerializer,
     LoginSerializer,
@@ -37,6 +46,10 @@ from .serializers import (
     UserMobileUpdateSerializer,
     UserMobileVerifySendSerializer,
     UserEmailActivateSerializer,
+    RoleListSerializer,
+    PermissionListSerializer,
+    RoleNestedSerializer,
+    RolePermissionSerializer,
 )
 
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -453,3 +466,57 @@ class UserMobileVerifySendView(GenericAPIView):
         SMSService.send_code(mobile, random_code)
         logger.info(f"用户{request.user.id}发送手机验证码成功，手机号：{mobile}")
         return Response({"detail": "手机验证码发送成功"}, status=status.HTTP_200_OK)
+
+
+class RoleListView(ListAPIView):
+    """角色列表视图"""
+
+    queryset = Role.objects.all()
+    serializer_class = RoleListSerializer
+    permission_classes = [IsAuthenticated, RBACPermission]
+    permission_code = "rbac.view_roles"
+
+
+class PermissionListView(ListAPIView):
+    """权限列表视图"""
+
+    serializer_class = PermissionListSerializer
+    permission_classes = [IsAuthenticated, RBACPermission]
+    permission_code = "rbac.view_permissions"
+
+    def get_queryset(self):
+        # 只获取根节点（parent is null）
+        return Permission.objects.filter(parent__isnull=True).prefetch_related(
+            "children"
+        )
+
+
+class RolePermissionView(GenericAPIView):
+    """角色对应权限查看视图"""
+
+    serializer_class = RolePermissionSerializer
+    permission_classes = [IsAuthenticated, RBACPermission]
+    permission_code = "rbac.manage_role_permissions"
+
+    def get(self, request, role_id):
+        """获取角色当前权限"""
+        try:
+            role = Role.objects.get(pk=role_id)
+        except Role.DoesNotExist:
+            return Response({"detail": "角色不存在"}, status=status.HTTP_404_NOT_FOUND)
+
+        # 获取该角色数据
+        role_data = RoleNestedSerializer(role).data
+        # 获取该角色的所有权限映射
+        role_permissions = RolePermissionMap.objects.filter(role=role)
+        # 序列化权限映射记录
+        serializer = self.get_serializer(role_permissions, many=True)
+
+        # 返回包含角色基本信息和权限列表的结构
+        return Response(
+            {
+                "role": role_data,
+                "permissions": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )

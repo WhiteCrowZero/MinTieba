@@ -138,7 +138,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
     # 异常处理
-    "EXCEPTION_HANDLER": "common.exceptions.database_exception_handler",
+    "EXCEPTION_HANDLER": "apps.common.exceptions.database_exception_handler",
     # 分页
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,  # 每页显示的文章数量

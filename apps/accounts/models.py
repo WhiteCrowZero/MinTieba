@@ -1,5 +1,31 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, UserManager
+from rest_framework.exceptions import ValidationError
+
+
+# ========== 枚举常量 ==========
+
+
+class GenderChoices(models.TextChoices):
+    """性别枚举"""
+
+    MALE = "male", "男"
+    FEMALE = "female", "女"
+    OTHER = "other", "其他"
+
+
+class VisibilityChoices(models.TextChoices):
+    """隐私设置枚举"""
+
+    PUBLIC = "public", "公开"
+    FOLLOW = "follow", "仅关注"
+    PRIVATE = "private", "私密"
+
+
+class TypeChoices(models.TextChoices):
+    DIRECTORY = "directory", "目录"
+    MENU = "menu", "菜单"
+    BUTTON = "button", "按钮"
 
 
 # ========== RBAC 权限相关表 ==========
@@ -17,7 +43,7 @@ class Role(models.Model):
         db_table = "role"
         verbose_name = "角色"
         verbose_name_plural = "角色列表"
-        ordering = ["level"]
+        ordering = ["-level"]
 
     def __str__(self):
         return self.name
@@ -29,18 +55,30 @@ class Permission(models.Model):
     code = models.CharField(max_length=100, unique=True, verbose_name="权限编码")
     name = models.CharField(max_length=100, verbose_name="权限名称")
     description = models.TextField(blank=True, null=True, verbose_name="权限描述")
-    category = models.CharField(
-        max_length=50, blank=True, null=True, verbose_name="权限分类"
+    type = models.CharField(
+        max_length=10, choices=TypeChoices.choices, default=TypeChoices.MENU
+    )
+    parent = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.CASCADE, related_name="children"
     )
 
     class Meta:
         db_table = "permission"
         verbose_name = "权限"
         verbose_name_plural = "权限列表"
-        ordering = ["category", "id"]
+        ordering = ["name", "id"]
 
     def __str__(self):
         return f"{self.name} ({self.code})"
+
+    def clean(self):
+        """防止循环引用"""
+        if self.parent_id:
+            current = self.parent
+            while current:
+                if current.id == self.id:
+                    raise ValidationError("不能将自己或下级权限设置为父权限！")
+                current = current.parent
 
 
 class RolePermissionMap(models.Model):
@@ -70,25 +108,6 @@ class RolePermissionMap(models.Model):
         return f"{self.role.name} - {self.permission.name}"
 
 
-# ========== 枚举常量 ==========
-
-
-class GenderChoices(models.TextChoices):
-    """性别枚举"""
-
-    MALE = "male", "男"
-    FEMALE = "female", "女"
-    OTHER = "other", "其他"
-
-
-class VisibilityChoices(models.TextChoices):
-    """隐私设置枚举"""
-
-    PUBLIC = "public", "公开"
-    FOLLOW = "follow", "仅关注"
-    PRIVATE = "private", "私密"
-
-
 # ========== 用户管理 ==========
 
 
@@ -116,6 +135,8 @@ class UserAccount(AbstractUser):
         "accounts.Role",
         on_delete=models.SET_NULL,
         null=True,
+        blank=True,
+        default=None,
         related_name="users",
         verbose_name="角色",
     )

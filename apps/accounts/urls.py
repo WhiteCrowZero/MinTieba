@@ -16,6 +16,9 @@ from .views import (
     UserEmailVerifySendView,
     UserActivateSendView,
     UserActivateVerifyView,
+    RoleListView,
+    PermissionListView,
+    RolePermissionView,
 )
 
 urlpatterns = [
@@ -25,8 +28,16 @@ urlpatterns = [
     # 图片验证码发送
     path("captcha/", ImageCaptchaView.as_view(), name="image-captcha"),
     # 账户激活（原本是email和mobile，但是目前sms服务有问题，只用email）
-    path("activate/email/send/", UserActivateSendView.as_view(), name="activate-email-send"),
-    path("activate/email/verify/", UserActivateVerifyView.as_view(), name="activate-email-verify"),
+    path(
+        "activate/email/send/",
+        UserActivateSendView.as_view(),
+        name="activate-email-send",
+    ),
+    path(
+        "activate/email/verify/",
+        UserActivateVerifyView.as_view(),
+        name="activate-email-verify",
+    ),
     # 登出
     path("logout/", LogoutView.as_view(), name="logout"),
     # 基本信息展示和修改
@@ -47,4 +58,12 @@ urlpatterns = [
     path("password/reset/", ResetPasswordView.as_view(), name="password-reset"),
     # 删除账号（软删除）
     path("destroy/", DestroyUserView.as_view(), name="destroy-user"),
+    # rbac权限
+    path("roles/", RoleListView.as_view(), name="role-list"),
+    path("permissions/", PermissionListView.as_view(), name="permission-list"),
+    path(
+        "role/<int:role_id>/permissions/",
+        RolePermissionView.as_view(),
+        name="role-permissions",
+    ),
 ]
