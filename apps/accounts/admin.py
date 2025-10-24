@@ -37,7 +37,7 @@ class RoleAdmin(admin.ModelAdmin):
 class PermissionAdmin(admin.ModelAdmin):
     """权限管理"""
 
-    list_display = ("id", "code", "name", "category", "description")
+    list_display = ("id", "code", "name", "type", "parent", "category")
     search_fields = ("code", "name")
     list_filter = ("category",)
     ordering = ("category", "id")

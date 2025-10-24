@@ -38,3 +38,27 @@ class CanViewUserProfile(BasePermission):
 
         # 默认不允许
         return False
+
+
+class RBACPermission(BasePermission):
+    """
+    检查用户是否具备 view.permission_code 指定的权限
+    """
+
+    @staticmethod
+    def user_has_permission(user, perm_code):
+        """判断用户是否拥有指定权限"""
+        if not user.is_authenticated:
+            return False
+
+        if getattr(user.role, "level", 0) >= 100:  # 超级管理员放行
+            return True
+
+        return user.role.permissions.filter(permission__code=perm_code).exists()
+
+    def has_permission(self, request, view):
+        perm_code = getattr(view, "permission_code", None)
+        if not perm_code:
+            return True  # 默认不限制
+
+        return self.user_has_permission(request.user, perm_code)

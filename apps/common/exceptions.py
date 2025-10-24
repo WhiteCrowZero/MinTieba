@@ -36,6 +36,13 @@ def database_exception_handler(exc, context):
                 {"error": "数据库操作失败", "detail": "服务器内部错误，请稍后重试"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+        else:
+            # 其他未知异常
+            logger.error(f"未知异常: {exc}", exc_info=True)
+            return Response(
+                {"error": "未知异常", "detail": "未知异常，请稍后重试"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     return response
 

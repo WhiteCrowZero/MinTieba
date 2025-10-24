@@ -7,7 +7,7 @@ from rest_framework.validators import UniqueValidator
 
 from common.utils.email_utils import EmailService
 from common.utils.oss_utils import MinioClientWrapper
-from .models import UserProfile
+from .models import UserProfile, Role, Permission, RolePermissionMap
 from apps.common.auth import CaptchaValidateMixin
 from apps.common.utils.oss_utils import OssService
 
@@ -306,3 +306,65 @@ class UserMobileVerifySendSerializer(serializers.ModelSerializer):
     """用户手机号验证码发送序列化器"""
 
     pass
+
+
+class RoleListSerializer(serializers.ModelSerializer):
+    """角色列表序列化器"""
+
+    class Meta:
+        model = Role
+        fields = ["id", "name", "description", "level"]
+
+
+class PermissionListSerializer(serializers.ModelSerializer):
+    """权限列表序列化器（支持层级）"""
+
+    parent = serializers.PrimaryKeyRelatedField(read_only=True)
+    children = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Permission
+        fields = [
+            "id",
+            "name",
+            "code",
+            "type",
+            "parent",
+            "description",
+            "category",
+            "children",
+        ]
+
+    def get_children(self, obj):
+        """递归获取子权限"""
+        children = obj.children.all()
+        if not children:
+            return []
+        return PermissionListSerializer(children, many=True).data
+
+
+class RoleNestedSerializer(serializers.ModelSerializer):
+    """角色嵌套序列化器"""
+
+    class Meta:
+        model = Role
+        fields = ["id", "name", "level"]
+
+
+class PermissionNestedSerializer(serializers.ModelSerializer):
+    """权限嵌套序列化器"""
+    parent = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = Permission
+        fields = ["id", "name", "code", "type", "parent"]
+
+
+class RolePermissionSerializer(serializers.ModelSerializer):
+    """角色权限序列化器"""
+
+    permission = PermissionNestedSerializer(read_only=True)
+
+    class Meta:
+        model = RolePermissionMap
+        fields = ["id", "permission", "created_at"]
