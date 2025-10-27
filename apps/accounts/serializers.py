@@ -6,7 +6,7 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
 from common.utils.email_utils import EmailService
-from common.utils.oss_utils import MinioClientWrapper
+from common.utils.oss_utils import MinioClientWrapper, BaseImageUploadSerializer
 from .models import UserProfile, Role, Permission, RolePermissionMap
 from apps.common.auth import CaptchaValidateMixin
 from apps.common.utils.oss_utils import OssService
@@ -192,51 +192,16 @@ class UserBasicInfoSerializer(serializers.ModelSerializer):
         return value
 
 
-class UserAvatarSerializer(serializers.ModelSerializer):
+class UserAvatarSerializer(BaseImageUploadSerializer):
     """用户头像查看、修改序列化器"""
 
-    avatar_file = serializers.ImageField(write_only=True, required=True)
+    file_field_name = "avatar_file"  # API 字段名为 avatar
+    url_field_name = "avatar_url"  # 模型字段为 avatar_url
+    oss_folder = "avatars"
 
-    class Meta:
+    class Meta(BaseImageUploadSerializer.Meta):
         model = UserModel
-        fields = ["avatar_file", "avatar_url"]
-        read_only_fields = ["avatar_url"]
-
-    def validate_avatar_file(self, f):
-        if f.size > getattr(settings, "OSS_MAX_IMAGE_SIZE", 5 * 1024 * 1024):
-            raise serializers.ValidationError("文件大小超过限制")
-        return f
-
-    def update(self, instance, validated_data):
-        # 取出上传文件
-        logger.info(f"用户 {self.context['request'].user} 正在上传图片")
-        avatar_file = validated_data.pop("avatar_file", None)
-        if avatar_file:
-            # 上传到 OSS，返回 URL
-            try:
-                oss_url = self.upload_to_oss(avatar_file)
-                instance.avatar_url = oss_url
-            except Exception as e:
-                logger.error(f"用户 {self.context['request'].user} 上传图片失败: {e}")
-                raise serializers.ValidationError("上传图片失败")
-        else:
-            logger.warning(f"用户 {self.context['request'].user} 没有上传图片")
-            return instance
-
-        instance.save()
-        logger.info(f"用户 {self.context['request'].user} 上传图片成功")
-        return instance
-
-    def upload_to_oss(self, file):
-        """上传文件到 OSS，并返回 URL"""
-        data = OssService.upload_image(
-            uploaded_file=file,
-            folder_name="avatar",
-            compress=True,
-            client_wrapper=MinioClientWrapper,  # 压缩
-        )
-        oss_url = data.get("url")
-        return oss_url
+        fields = []
 
 
 class UserEmailUpdateSerializer(serializers.ModelSerializer):
