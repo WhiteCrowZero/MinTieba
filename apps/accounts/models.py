@@ -199,8 +199,8 @@ class UserProfile(models.Model):
         default=VisibilityChoices.FOLLOW,
         verbose_name="隐私设置",
     )
-    is_deleted = models.BooleanField(default=False, verbose_name="是否注销")
-    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="注销时间")
+    is_deleted = models.BooleanField(default=False, verbose_name="是否删除")
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="删除时间")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 

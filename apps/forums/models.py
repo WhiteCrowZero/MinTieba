@@ -1,5 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.db import models
+from django.utils import timezone
+
+from common.delete import SoftDeleteModel
 
 # 用户主模型
 UserModel = get_user_model()
@@ -15,10 +18,16 @@ class RoleChoices(models.TextChoices):
     MEMBER = "member", "普通成员"
 
 
+class ActionType(models.TextChoices):
+    CHANGE_ROLE = "change_role", "角色变更"
+    BAN_MEMBER = "ban", "封禁成员"
+    UNBAN_MEMBER = "unban", "解封成员"
+
+
 # ========== 吧相关模型 ==========
 
 
-class Forum(models.Model):
+class Forum(SoftDeleteModel):
     """贴吧主信息表"""
 
     name = models.CharField(max_length=100, unique=True, verbose_name="吧名称")
@@ -31,7 +40,7 @@ class Forum(models.Model):
         verbose_name="创建者",
     )
     post_count = models.PositiveIntegerField(default=0, verbose_name="帖子数量")
-    member_count = models.PositiveIntegerField(default=0, verbose_name="成员数量")
+    member_count = models.PositiveIntegerField(default=1, verbose_name="成员数量")
     rules = models.TextField(blank=True, null=True, verbose_name="吧规")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
@@ -45,14 +54,25 @@ class Forum(models.Model):
     def __str__(self):
         return self.name
 
+    def delete(self, using=None, keep_parents=False):
+        """软删除贴吧及所有关联对象"""
+        # 先软删除关联关系
+        self.categories.all().update(is_deleted=True, deleted_at=timezone.now())
+        self.relations.all().update(is_deleted=True, deleted_at=timezone.now())
+        self.members.all().update(is_deleted=True, deleted_at=timezone.now())
+        self.activities.all().update(is_deleted=True, deleted_at=timezone.now())
+        super().delete(using, keep_parents)
 
-class ForumCategory(models.Model):
+
+class ForumCategory(SoftDeleteModel):
     """贴吧分类"""
 
     name = models.CharField(max_length=50, unique=True, verbose_name="分类名称")
     description = models.TextField(blank=True, null=True, verbose_name="描述")
     icon_url = models.URLField(blank=True, null=True, verbose_name="图标URL")
     sort_order = models.PositiveIntegerField(default=0, verbose_name="排序")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     class Meta:
         db_table = "forum_category"
@@ -63,8 +83,13 @@ class ForumCategory(models.Model):
     def __str__(self):
         return self.name
 
+    def delete(self, using=None, keep_parents=False):
+        """软删除分类及其映射"""
+        self.forums.all().update(is_deleted=True, deleted_at=timezone.now())
+        super().delete(using, keep_parents)
 
-class ForumCategoryMap(models.Model):
+
+class ForumCategoryMap(SoftDeleteModel):
     """贴吧与分类映射"""
 
     forum = models.ForeignKey(
@@ -90,11 +115,14 @@ class ForumCategoryMap(models.Model):
         return f"{self.forum.name} - {self.category.name}"
 
 
-class ForumRelation(models.Model):
+class ForumRelation(SoftDeleteModel):
     """贴吧关联表"""
 
     forum = models.ForeignKey(
-        "forums.Forum", on_delete=models.CASCADE, related_name="relations", verbose_name="贴吧"
+        "forums.Forum",
+        on_delete=models.CASCADE,
+        related_name="relations",
+        verbose_name="贴吧",
     )
     related = models.ForeignKey(
         "forums.Forum",
@@ -114,11 +142,14 @@ class ForumRelation(models.Model):
         return f"{self.forum.name} ↔ {self.related.name}"
 
 
-class ForumMember(models.Model):
+class ForumMember(SoftDeleteModel):
     """吧成员表"""
 
     forum = models.ForeignKey(
-        "forums.Forum", on_delete=models.CASCADE, related_name="members", verbose_name="贴吧"
+        "forums.Forum",
+        on_delete=models.CASCADE,
+        related_name="members",
+        verbose_name="贴吧",
     )
     user = models.ForeignKey(
         UserModel,
@@ -145,7 +176,48 @@ class ForumMember(models.Model):
         return f"{self.user.username} in {self.forum.name}"
 
 
-class ForumActivity(models.Model):
+class ForumMemberAuditLog(models.Model):
+    """
+    贴吧成员权限或状态变更审计日志
+    """
+
+    forum = models.ForeignKey(
+        "forums.Forum",
+        on_delete=models.CASCADE,
+        related_name="audit_logs",
+        verbose_name="所属贴吧",
+    )
+    operator = models.ForeignKey(
+        UserModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="performed_audit_logs",
+        verbose_name="操作人",
+    )
+    target_user = models.ForeignKey(
+        UserModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="target_audit_logs",
+        verbose_name="被操作成员",
+    )
+    action = models.CharField(max_length=32, choices=ActionType.choices)
+    old_role = models.CharField(max_length=20, blank=True, null=True)
+    new_role = models.CharField(max_length=20, blank=True, null=True)
+    old_banned = models.BooleanField(null=True, blank=True)
+    new_banned = models.BooleanField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "forum_member_audit_log"
+        verbose_name = "成员权限变更日志"
+        verbose_name_plural = "成员权限变更日志"
+
+    def __str__(self):
+        return f"[{self.forum.name}] {self.operator} {self.action} {self.target_user}"
+
+
+class ForumActivity(SoftDeleteModel):
     """吧内活跃度表"""
 
     forum = models.ForeignKey(

@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
+    "django_celery_beat",
     # project
     "accounts",
     "forums",
@@ -155,7 +156,8 @@ SIMPLEUI_DEFAULT_THEME = "admin.e-blue-pro.css"
 
 # JWT 设置
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=3000),  # access token 30 分钟过期
+    # "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),  # access token 30 分钟过期
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=30),  # 测试用
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),  # refresh token 1 天过期
     "ROTATE_REFRESH_TOKENS": True,  # 刷新时颁发新的 refresh
     "BLACKLIST_AFTER_ROTATION": True,  # 旧的 refresh 失效
@@ -343,3 +345,9 @@ TENCENTCLOUD_SECRET_KEY = os.getenv("TENCENTCLOUD_SECRET_KEY", "")
 TENCENT_SMS_APP_ID = os.getenv("TENCENT_SMS_APP_ID", "")
 TENCENT_SMS_SIGN = os.getenv("TENCENT_SMS_SIGN", "")
 TENCENT_SMS_TEMPLATE_ID = os.getenv("TENCENT_SMS_TEMPLATE_ID", "")
+
+# Celery配置
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", f"{REDIS_URL}/15")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_TIMEZONE = "Asia/Shanghai"
