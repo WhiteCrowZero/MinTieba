@@ -1,7 +1,7 @@
 from celery import shared_task
 from django.utils import timezone
 from django.db import transaction
-from forums.models import Forum, ForumMember, RoleChoices
+from forums.models import Forum, ForumMember, RoleChoices, ForumActivity
 
 
 @shared_task(bind=True, max_retries=3)
@@ -17,11 +17,15 @@ def toggle_forum_membership_task(self, forum_id, user_id):
             ).first()
 
             if not member:
-                ForumMember.objects.create(
+                member = ForumMember.objects.create(
                     forum=forum,
                     user_id=user_id,
                     role_type=RoleChoices.MEMBER,
                 )
+                # ForumActivity.objects.create(
+                #     forum=forum,
+                #     forum_member=member,
+                # )
                 action = "joined"
             elif member.is_deleted:
                 member.is_deleted = False

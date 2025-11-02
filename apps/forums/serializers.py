@@ -14,6 +14,7 @@ from .models import (
     ForumMemberAuditLog,
     ActionType,
     ForumRelation,
+    ForumActivity,
 )
 
 
@@ -301,3 +302,48 @@ class RelationDeleteInputSerializer(serializers.Serializer):
 #         model = ForumRelationRequest
 #         fields = ["id", "to_forum", "relation_type", "status"]
 #         read_only_fields = ["status"]
+
+
+class ForumActivitySerializer(serializers.ModelSerializer):
+    """贴吧活跃度查看序列化器"""
+
+    forum_member_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ForumActivity
+        fields = [
+            "id",
+            "forum_member_name",
+            "exp_points",
+            "level",
+            "last_active_at",
+            "sign_in_streak",
+        ]
+        read_only_fields = [
+            "id",
+            "forum_member_name",
+            "exp_points",
+            "level",
+            "last_active_at",
+            "sign_in_streak",
+        ]
+
+    def get_forum_member_name(self, obj):
+        return obj.forum_member.user.username if obj.forum_member else None
+
+
+class ForumSignInInputSerializer(serializers.Serializer):
+    """贴吧活跃度签到序列化器"""
+
+    forum = serializers.PrimaryKeyRelatedField(
+        queryset=Forum.objects.all(), required=True
+    )
+
+    def validate(self, attrs):
+        request = self.context["request"]
+        forum = attrs["forum"]
+        member = ForumMember.objects.filter(forum=forum, user=request.user).first()
+        if not member:
+            raise serializers.ValidationError("你不是该贴吧成员，无法签到")
+        attrs["forum_member"] = member
+        return attrs

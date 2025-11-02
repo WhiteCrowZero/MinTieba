@@ -23,10 +23,12 @@ class ActionType(models.TextChoices):
     BAN_MEMBER = "ban", "封禁成员"
     UNBAN_MEMBER = "unban", "解封成员"
 
+
 class ForumRelationRequestStatus(models.TextChoices):
     PENDING = "pending", "待审核"
     APPROVED = "approved", "已批准"
     REJECTED = "rejected", "已拒绝"
+
 
 class ForumRelationType(models.TextChoices):
     BIND = "bind", "绑定"
@@ -264,7 +266,7 @@ class ForumActivity(SoftDeleteModel):
     )
     exp_points = models.PositiveIntegerField(default=0, verbose_name="经验值")
     level = models.PositiveIntegerField(default=1, verbose_name="等级")
-    last_active_at = models.DateTimeField(auto_now=True, verbose_name="最后活跃时间")
+    last_active_at = models.DateField(auto_now=True, verbose_name="最后活跃时间")
     sign_in_streak = models.PositiveIntegerField(default=0, verbose_name="签到连天数")
 
     class Meta:
