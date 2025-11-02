@@ -8,8 +8,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.common.utils.cache_utils import CacheService
 
-# from services.oauth import OauthWeiboVerify
-
 User = get_user_model()
 
 
@@ -19,13 +17,6 @@ def generate_tokens_for_user(user):
     return str(refresh.access_token), str(refresh)
 
 
-#
-# def make_random_password(length=8):
-#     """生成随机密码"""
-#     chars = string.ascii_letters + string.digits + string.punctuation
-#     return ''.join(random.choices(chars, k=length))
-#
-#
 def make_random_code(length=5):
     """生成含有字母数字的随机验证码"""
     chars = string.ascii_letters + string.digits
@@ -78,30 +69,3 @@ class EmailOrUsernameBackend(ModelBackend):
         if user.check_password(password):
             return user
         return None
-
-
-#
-# # 系列第三方验证接口
-# oauth_weibo_verify = OauthWeiboVerify()
-#
-#
-# def oauth_authentication(type, code):
-#     try:
-#         if type == 'weibo':
-#             openid = oauth_weibo_verify.authentication(code)
-#             return openid
-#         elif type == 'google':
-#             pass
-#         elif type == 'facebook':
-#             pass
-#         elif type == 'wechat':
-#             pass
-#         elif type == 'qq':
-#             pass
-#         else:
-#             return None
-#     except Exception as e:
-#         return None
-#
-#     # # 测试业务逻辑用
-# return f'{type}-{code}-test'

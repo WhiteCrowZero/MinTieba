@@ -6,6 +6,7 @@ from typing import Optional
 
 from django.conf import settings
 from minio import Minio
+from rest_framework import serializers
 
 from common.exceptions import MinioOperationError, UploadImageError
 from common.utils.image_utils import ImageProcessor
@@ -93,7 +94,7 @@ class OssService:
         compress=True,
         processor=None,
         client_wrapper=None,
-        expires_time:Optional[timedelta]=None,
+        expires_time: Optional[timedelta] = None,
     ):
         """
         上传图片并返回 URL
@@ -141,3 +142,76 @@ class OssService:
             "size": len(data),
             "content_type": content_type,
         }
+
+
+# ---------- 通用序列化器封装 ----------
+
+class BaseImageUploadSerializer(serializers.ModelSerializer):
+    """
+    通用图片上传序列化器基类
+    子类只需定义:
+      - file_field_name: 上传文件字段名
+      - url_field_name: 模型中存储 URL 的字段名
+      - oss_folder: 上传 OSS 的目录名
+    """
+
+    # 默认配置（子类覆盖）
+    file_field_name = "file"
+    url_field_name = "url"
+    oss_folder = "default"
+
+    class Meta:
+        model = None  # 子类定义
+        fields = []
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def get_fields(self):
+        """动态为子类指定的 file_field_name 和 url_field_name"""
+        fields = super().get_fields()
+        # 添加文件字段
+        fields[self.file_field_name] = serializers.ImageField(write_only=True)
+        # 添加URL字段
+        fields[self.url_field_name] = serializers.CharField(read_only=True)
+        return fields
+
+
+    def validate(self, attrs):
+        """大小校验"""
+        file = attrs.get(self.file_field_name)
+        if file and file.size > getattr(
+            settings, "OSS_MAX_IMAGE_SIZE", 5 * 1024 * 1024
+        ):
+            raise serializers.ValidationError("文件大小超过限制 (最大5MB)")
+        return attrs
+
+    def upload_to_oss(self, file):
+        """上传文件到 OSS，并返回 URL"""
+        data = OssService.upload_image(
+            uploaded_file=file,
+            folder_name=self.oss_folder,
+            compress=True,
+            client_wrapper=MinioClientWrapper,
+        )
+        return data.get("url")
+
+    def update(self, instance, validated_data):
+        file = validated_data.pop(self.file_field_name, None)
+        user = self.context["request"].user
+        logger.info(f"用户 {user} 正在上传 {self.oss_folder} 图片")
+
+        if not file:
+            logger.warning(f"用户 {user} 没有上传图片")
+            return instance
+
+        try:
+            oss_url = self.upload_to_oss(file)
+            setattr(instance, self.url_field_name, oss_url)
+            instance.save()
+            logger.info(f"用户 {user} 上传 {self.oss_folder} 图片成功")
+        except Exception as e:
+            logger.error(f"用户 {user} 上传 {self.oss_folder} 图片失败: {e}")
+            raise serializers.ValidationError("上传图片失败")
+
+        return instance
