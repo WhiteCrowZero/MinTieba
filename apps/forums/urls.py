@@ -9,12 +9,14 @@ from .views import (
     ForumMemberViewSet,
     ForumMemberReadOnlyViewSet,
     ForumMemberRoleViewSet,
+    ForumRelationViewSet,
 )
 
 # 创建主路由
 router = routers.DefaultRouter()
-router.register(r"forums", ForumViewSet, basename="forum")
 router.register(r"forums/categories", ForumCategoryViewSet, basename="category")
+router.register(r"forums/relations", ForumRelationViewSet, basename="forum-relation")
+router.register(r"forums", ForumViewSet, basename="forum")
 
 # 嵌套路由，针对 forum_pk 的成员相关操作
 forums_router = routers.NestedDefaultRouter(router, r"forums", lookup="forum")
@@ -30,6 +32,7 @@ forums_router.register(
 forums_router.register(
     r"members/role", ForumMemberRoleViewSet, basename="forum-member-manage"
 )
+
 
 urlpatterns = [
     # 主路由 URL

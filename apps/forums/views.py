@@ -5,15 +5,16 @@ from django.http import Http404
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from django_redis import get_redis_connection
-from rest_framework import status, filters
+from rest_framework import status, filters, mixins
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.generics import UpdateAPIView, get_object_or_404
 from rest_framework.viewsets import ModelViewSet, GenericViewSet, ReadOnlyModelViewSet
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from common.permissions import IsForumAdmin, RBACPermission
 from .tasks import toggle_forum_membership_task
-from .models import Forum, ForumCategory, ForumMember, RoleChoices
+from .models import Forum, ForumCategory, ForumMember, RoleChoices, ForumRelation
 from .serializers import (
     ForumSerializer,
     ForumCategorySerializer,
@@ -21,6 +22,8 @@ from .serializers import (
     ForumMemberReadOnlySerializer,
     RoleUpdateSerializer,
     BanMemberSerializer,
+    ForumRelationSerializer,
+    RelationDeleteInputSerializer,
 )
 
 logger = logging.getLogger("feat")
@@ -39,6 +42,7 @@ class ForumViewSet(ModelViewSet):
 
     queryset = Forum.objects.all().select_related("creator")
     serializer_class = ForumSerializer
+    lookup_value_regex = r"\d+"  # 只有纯数字才当成 pk
 
     def get_permissions(self):
         if self.action in ("update", "partial_update", "destroy", "modify_rules"):
@@ -209,7 +213,7 @@ class ForumMemberViewSet(GenericViewSet):
         )
 
 
-class ForumMemberRoleViewSet(ModelViewSet):
+class ForumMemberRoleViewSet(GenericViewSet):
     """
     管理成员角色与封禁（只有吧主/管理员）
     """
@@ -252,3 +256,40 @@ class ForumMemberRoleViewSet(ModelViewSet):
             {"detail": f"{member.user.username} 封禁状态已修改"},
             status=status.HTTP_200_OK,
         )
+
+
+class ForumRelationViewSet(
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    GenericViewSet,
+):
+    """贴吧关联关系管理接口"""
+
+    queryset = ForumRelation.objects.select_related("forum")
+    serializer_class = ForumRelationSerializer
+    lookup_value_regex = r"\d+"  # 只有纯数字才当成 pk
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsForumAdmin()]
+        return [IsAuthenticated()]
+
+    def retrieve(self, request, *args, **kwargs):
+        related_forums = ForumRelation.objects.filter(forum__pk=kwargs.get("pk"))
+        serializer = self.get_serializer(related_forums, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["post"], url_path="delete")
+    def delete(self, request, *args, **kwargs):
+        serializer = RelationDeleteInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        relationship = ForumRelation.objects.filter(
+            forum=data["forum"], related=data["related"]
+        )
+        if not relationship.exists():
+            return Response(
+                {"detail": "未找到指定的关联关系"}, status=status.HTTP_404_NOT_FOUND
+            )
+        relationship.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

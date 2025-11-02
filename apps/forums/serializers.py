@@ -13,6 +13,7 @@ from .models import (
     RoleChoices,
     ForumMemberAuditLog,
     ActionType,
+    ForumRelation,
 )
 
 
@@ -246,3 +247,57 @@ class BanMemberSerializer(serializers.ModelSerializer):
         )
 
         return member
+
+
+class ForumRelationSerializer(serializers.ModelSerializer):
+    """吧关联关系序列化器"""
+
+    forum = serializers.PrimaryKeyRelatedField(
+        queryset=Forum.objects.all(), required=True
+    )
+    related = serializers.PrimaryKeyRelatedField(
+        queryset=Forum.objects.all(), required=False
+    )
+
+    class Meta:
+        model = ForumRelation
+        fields = ["id", "forum", "related"]
+        read_only_fields = ["id"]
+
+    def validate(self, attrs):
+        forum = attrs["forum"]
+        related = attrs["related"]
+
+        if forum == related:
+            raise serializers.ValidationError("无法关联自己")
+        if (
+            ForumRelation.objects.filter(forum=forum, related=related).exists()
+            or ForumRelation.objects.filter(forum=related, related=forum).exists()
+        ):
+            raise serializers.ValidationError("关联已存在（包括反向关联）")
+
+        return attrs
+
+
+class RelationDeleteInputSerializer(serializers.Serializer):
+    """吧关联关系删除专用序列化器"""
+
+    forum = serializers.PrimaryKeyRelatedField(
+        queryset=Forum.objects.all(), required=True
+    )
+    related = serializers.PrimaryKeyRelatedField(
+        queryset=Forum.objects.all(), required=True
+    )
+
+
+# class ForumRelationRequestSerializer(serializers.ModelSerializer):
+#     """吧关联关系请求序列化器"""
+#
+#     to_forum = serializers.PrimaryKeyRelatedField(
+#         queryset=Forum.objects.all(), write_only=True
+#     )
+#
+#     class Meta:
+#         model = ForumRelationRequest
+#         fields = ["id", "to_forum", "relation_type", "status"]
+#         read_only_fields = ["status"]

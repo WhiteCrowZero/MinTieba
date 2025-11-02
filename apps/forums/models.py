@@ -23,6 +23,14 @@ class ActionType(models.TextChoices):
     BAN_MEMBER = "ban", "封禁成员"
     UNBAN_MEMBER = "unban", "解封成员"
 
+class ForumRelationRequestStatus(models.TextChoices):
+    PENDING = "pending", "待审核"
+    APPROVED = "approved", "已批准"
+    REJECTED = "rejected", "已拒绝"
+
+class ForumRelationType(models.TextChoices):
+    BIND = "bind", "绑定"
+    UNBIND = "unbind", "解绑"
 
 # ========== 吧相关模型 ==========
 
@@ -140,6 +148,28 @@ class ForumRelation(SoftDeleteModel):
 
     def __str__(self):
         return f"{self.forum.name} ↔ {self.related.name}"
+
+
+# class ForumRelationRequest(models.Model):
+#     from_forum = models.ForeignKey(Forum, on_delete=models.CASCADE, related_name="relation_requests_sent")
+#     to_forum = models.ForeignKey(Forum, on_delete=models.CASCADE, related_name="relation_requests_received")
+#     relation_type = models.CharField(
+#         max_length=20,
+#         choices=ForumRelationType.choices,
+#         default=ForumRelationType.BIND,
+#     )
+#
+#     status = models.CharField(
+#         max_length=20,
+#         choices=ForumRelationRequestStatus.choices,
+#         default=ForumRelationRequestStatus.PENDING,
+#     )
+#
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     acted_at = models.DateTimeField(null=True, blank=True)
+#
+#     class Meta:
+#         unique_together = ("from_forum", "to_forum")
 
 
 class ForumMember(SoftDeleteModel):
