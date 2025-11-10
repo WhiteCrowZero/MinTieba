@@ -1,87 +1,89 @@
-version: '3.8'
+name: mintieba
+
 services:
   mysql:
-    image: mysql:8.0
-    restart: always
-    container_name: mysql
-    networks:
-      - web
+    container_name: mintieba-mysql
+    image: mysql:8.4
+    command: [ "--mysql-native-password=ON",
+               "--character-set-server=utf8mb4",
+               "--collation-server=utf8mb4_unicode_ci" ]
+    env_file:
+      - .env
     environment:
-      MYSQL_ROOT_PASSWORD: 123
-      TZ: Asia/Shanghai
-    command:
-      --default-authentication-plugin=mysql_native_password
-      --character-set-server=utf8mb4
-      --collation-server=utf8mb4_unicode_ci
-      --explicit_defaults_for_timestamp=true
-    ports:
-      - "3307:3306"
+      TZ: ${TZ}
     volumes:
-      - ./docker/mysql/data:/var/lib/mysql/
-      - ./docker/mysql/conf:/etc/mysql/conf.d/
-      - ./docker/mysql/logs:/var/log/mysql/
-      - ./docker/mysql/init:/docker-entrypoint-initdb.d/
+      - mysql_data:/var/lib/mysql
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: [ "CMD-SHELL", "mysqladmin ping -h localhost -p${MYSQL_ROOT_PASSWORD} --silent" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   redis:
-    image: redis:6.2.6
-    restart: always
-    container_name: redis
-    networks:
-      - web
+    container_name: mintieba-reids
+    image: redis:7.4
+    command: [ "redis-server","--appendonly","yes" ]
+    env_file:
+      - .env
     ports:
-      - "6370:6379"
-    sysctls:
-      net.core.somaxconn: 2048
-    command: redis-server --requirepass 123
+      - "6379:6379"
     volumes:
-      - ./docker/redis/data:/data
-      - ./docker/redis/logs:/var/log/redis/
-      - ./docker/redis/conf:/usr/local/etc/redis/
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli","ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
-  ubuntu1: &ubuntu
+  minio:
+    container_name: mintieba-minio
+    image: minio/minio:latest
+    command: [ "server","/data","--console-address",":9001" ]
+    env_file:
+      - .env
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      TZ: ${TZ}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: [ "CMD","curl","-f","http://localhost:9000/minio/health/live" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    container_name: mintieba-app
     build:
-      context: ../..
-      dockerfile: Dockerfile
-    restart: always
-    container_name: ubuntu1
-    networks:
-      - sys
+      context: ../..              # 以 /project 为构建上下文
+      dockerfile: deploy/docker_env/Dockerfile
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      TZ: ${TZ}
     ports:
-      - "8881:22"  # 修复：映射到标准SSH端口22
-    tty: true
-    # 移除privileged: true，除非确实需要
-    # 添加标准输入保持打开
-    stdin_open: true
-    expose:
-      - 22
-    command: /usr/sbin/sshd -D  # 修复：正确的sshd路径
+      - "${APP_PORT}:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
 
-  ubuntu2:
-    <<: *ubuntu
-    container_name: ubuntu2
-    ports:
-      - "8882:22"  # 修复：映射到标准SSH端口22
-
-  ubuntu3:
-    <<: *ubuntu
-    container_name: ubuntu3
-    ports:
-      - "8883:22"  # 修复：映射到标准SSH端口22
-
-  ubuntu4:
-    <<: *ubuntu
-    container_name: ubuntu4
-    ports:
-      - "8884:22"  # 修复：映射到标准SSH端口22
-
-# 网络定义应该在这里，与services同级
 networks:
-  web:
-    driver: bridge
-  sys:
-    driver: bridge
+  default:
+    name: app_net
 
-# 启动命令：
-# docker-compose -f docker-compose.yaml up -d
-# 停止命令：
-# docker-compose -f docker-compose.yaml down
+volumes:
+  mysql_data:
+  redis_data:
+  minio_data:
