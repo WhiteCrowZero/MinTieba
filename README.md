@@ -1,6 +1,6 @@
 # MinTieba
 
-项目接口文档地址：[`/docs/redoc/`](http://124.220.64.116:8000/docs/redoc/)
+项目接口文档地址：[`MinTieba`](http://124.220.64.116:8000/docs/redoc/)
 
 ---
 
@@ -163,19 +163,19 @@ MinTieba/                       ← 仓库根目录
 > 下述为各模块的实体关系图，实际表结构以 Django Models 与迁移文件为准。
 
 * accounts 模块
-  ![accounts](https://github.com/MinTieba/MinTieba/blob/main/docs/imgs/accounts.svg)
+  ![accounts](https://github.com/WhiteCrowZero/MinTieba/blob/main/docs/imgs/accounts.svg)
 
 * forums 模块
-  ![forums](https://github.com/MinTieba/MinTieba/blob/main/docs/imgs/forums.svg)
+  ![forums](https://github.com/WhiteCrowZero/MinTieba/blob/main/docs/imgs/forums.svg)
 
 * interactions 模块
-  ![interactions](https://github.com/MinTieba/MinTieba/blob/main/docs/imgs/interactions.svg)
+  ![interactions](https://github.com/WhiteCrowZero/MinTieba/blob/main/docs/imgs/interactions.svg)
 
 * posts 模块
-  ![posts](https://github.com/MinTieba/MinTieba/blob/main/docs/imgs/posts.svg)
+  ![posts](https://github.com/WhiteCrowZero/MinTieba/blob/main/docs/imgs/posts.svg)
 
 * operations 模块
-  ![operations](https://github.com/MinTieba/MinTieba/blob/main/docs/imgs/operations.svg)
+  ![operations](https://github.com/WhiteCrowZero/MinTieba/blob/main/docs/imgs/operations.svg)
 
 ---
 
@@ -253,7 +253,7 @@ MinTieba/                       ← 仓库根目录
 
 ---
 
-> 本项目主要用于个人学习与技术实践，功能与实现将根据实际学习进度持续迭代。
+> 说明：本项目主要用于个人学习与技术实践，功能与实现将根据实际学习进度持续迭代。
 
 
 
