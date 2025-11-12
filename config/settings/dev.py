@@ -38,3 +38,6 @@ SPECTACULAR_SETTINGS.update(
         "SERVE_PUBLIC": True,
     }
 )
+
+# 开发绘制 UML 图
+INSTALLED_APPS += ["django_extensions"]

@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "forums",
     "posts",
     "interactions",
+    # "operations",
 ]
 
 MIDDLEWARE = [

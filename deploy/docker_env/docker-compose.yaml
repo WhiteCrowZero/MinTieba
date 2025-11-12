@@ -23,7 +23,7 @@ services:
       retries: 10
 
   redis:
-    container_name: mintieba-reids
+    container_name: mintieba-redis
     image: redis:7.4
     command: [ "redis-server","--appendonly","yes" ]
     env_file:
